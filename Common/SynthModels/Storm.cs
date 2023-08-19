@@ -135,6 +135,6 @@ public class Storm : SynthModel
 
         newHookProj.Projectile.rotation = vanillaGrapple.rotation;
         newHookProj.GrappleChain = _grappleChain;
-        newHookProj.Setup(hookTexture, chainTexture, chainGlowTexture, chainGlowColor, vanillaGrapple.Size.ToPoint());
+        newHookProj.Setup(hookTexture, chainTexture, chainGlowTexture, chainGlowColor, hookTexture.Size().ToPoint());
     }
 }

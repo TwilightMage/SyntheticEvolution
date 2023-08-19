@@ -29,6 +29,8 @@ public class Chain
             chain.Points[i].Position = chain.Points[i].LastPosition = start + normal * segmentLength * i;
         }
 
+        chain.Last.Position = chain.Last.LastPosition = end;
+
         return chain;
     }
 
