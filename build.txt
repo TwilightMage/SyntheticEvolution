@@ -1,0 +1,8 @@
+author = Blooming Dragon
+displayName = Synthetic Evolution
+homepage = https://tmodloader.net/
+hideCode = false
+hideResources = false
+includeSource = true
+buildIgnore = *.csproj, *.user, obj\*, bin\*, .vs\*, Old\*
+includePDB = true

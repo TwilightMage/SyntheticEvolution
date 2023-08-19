@@ -1,0 +1,57 @@
+Mods: {
+	SyntheticEvolution: {
+		Buffs: {
+			SynthBuff: {
+				DisplayName: Synthetic Body
+				Description: ""
+			}
+		}
+
+		Items: {
+			StasisPod: {
+				DisplayName: Stasis Pod
+				Tooltip: ""
+			}
+
+			SynthPartsFabricator: {
+				DisplayName: Synth Parts Fabricator
+				Tooltip: ""
+			}
+
+			StormCopperLegs: {
+				DisplayName: Storm Copper Legs
+				Tooltip: ""
+			}
+
+			StormCopperChest: {
+				DisplayName: Storm Copper Chest
+				Tooltip: ""
+			}
+
+			StormCopperHead: {
+				DisplayName: Storm Copper Head
+				Tooltip: ""
+			}
+		}
+
+		UI: {
+			ToolTip: {
+				Armor: "{0} Armor"
+				SlideDamage: "{0} Slide Damage"
+			}
+
+			Fabricator.Title: Model: {0}
+		}
+
+		Tiles: {
+			StasisPod: {
+				MapEntry: Stasis Pod
+				MapEntryFilled: Stasis Pod ({0})
+			}
+
+			SynthPartsFabricator.MapEntry: Synth Parts Fabricator
+		}
+
+		Projectiles.StormHook.DisplayName: Storm Hook
+	}
+}
