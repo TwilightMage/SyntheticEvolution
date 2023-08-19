@@ -12,6 +12,9 @@ public class Chain
     public float Gravity = 0.9f;
     public float Drag = 0.999f;
     public int Stiffness = 12;
+
+    public ChainPoint First => Points[0];
+    public ChainPoint Last => Points[^1];
     
     public static Chain Create(Vector2 start, Vector2 end, float segmentLength)
     {
@@ -53,7 +56,7 @@ public class Chain
         }
 
         // attach the last link to the mouse
-        ChainPoint holdPoint = Points[Points.Length - 1];
+        ChainPoint holdPoint = Points[0];
         holdPoint.LastPosition = holdPoint.Position = HoldPosition;
 
         for (var i = 0; i < Stiffness; i++)

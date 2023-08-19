@@ -42,8 +42,12 @@ public class Storm : SynthModel
     public override void Update()
     {
         base.Update();
-        
-        _grappleChain?.UpdatePhysics();
+
+        if (_grappleChain != null)
+        {
+            _grappleChain.HoldPosition = OwningPlayer.Center;
+            _grappleChain.UpdatePhysics();
+        }
     }
 
     public override void Grapple()
@@ -122,7 +126,8 @@ public class Storm : SynthModel
         var hookTexture = TextureAssets.Projectile[vanillaGrapple.type].Value;
     
         _grappleChain = Chain.Create(OwningPlayer.Center, vanillaGrapple.Center, chainTexture.Height);
-        _grappleChain.HoldPosition = vanillaGrapple.Center;
+        _grappleChain.Last.Fixed = true;
+        _grappleChain.HoldPosition = OwningPlayer.Center;
         
         _grappleProjId = Projectile.NewProjectile(null, vanillaGrapple.Center, Vector2.Zero, ModContent.ProjectileType<StormHook>(), 0, 0, playerId);
         
