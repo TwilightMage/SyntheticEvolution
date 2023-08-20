@@ -21,11 +21,11 @@ public class StormHook : ModProjectile
 
     private static Dictionary<int, HookChainTexture> ExternalChainTextures = new Dictionary<int, HookChainTexture>();
 
-    public Chain GrappleChain;
-
+    private Chain _chain;
     private Texture2D _texture;
     private Texture2D _chainTexture;
     private Texture2D _chainGlowTexture;
+    private Rectangle[] _chainRectangles;
     private Color _chainGlowColor;
 
     public override void SetDefaults()
@@ -108,22 +108,46 @@ public class StormHook : ModProjectile
         }
     }
 
-    public void Setup(Texture2D texture, Texture2D chainTexture, Texture2D chainGlowTexture, Color chainGlowColor, Point size)
+    public static int TextureSizeToSplitAmount(Point textureSize)
     {
+        return (int)MathF.Floor((float)textureSize.Y / textureSize.X);
+    }
+
+    public void Setup(Chain chain, Texture2D texture, Texture2D chainTexture, Texture2D chainGlowTexture, Color chainGlowColor, Point size)
+    {
+        _chain = chain;
         _texture = texture;
         _chainTexture = chainTexture;
         _chainGlowTexture = chainGlowTexture;
         _chainGlowColor = chainGlowColor;
+
+        int splitAmount = TextureSizeToSplitAmount(_chainTexture.Bounds.Size().ToPoint());
+        _chainRectangles = new Rectangle[chain.Points.Length];
+        for (int i = 0; i < chain.Points.Length; i++)
+        {
+            _chainRectangles[i] = new Rectangle(0, _chainTexture.Height / splitAmount * (i % splitAmount), _chainTexture.Width, _chainTexture.Height / splitAmount);
+        }
+        
         Projectile.width = size.X;
         Projectile.height = size.Y;
     }
 
+    public override void AI()
+    {
+        base.AI();
+        
+        _chain.HoldPosition = Main.player[Projectile.owner].Center;
+        _chain.UpdatePhysics();
+
+        Projectile.timeLeft = 3600;
+    }
+
     public override bool PreDraw(ref Color lightColor)
     {
-        if (GrappleChain != null)
+        if (_chain != null)
         {
-            var p1 = GrappleChain.Points[^2].Position;
-            var p2 = GrappleChain.Points[^1].Position;
+            var p1 = _chain.Points[^2].Position;
+            var p2 = _chain.Points[^1].Position;
             Projectile.rotation = p1.AngleTo(p2) + MathF.PI / 2;
         }
 
@@ -134,17 +158,19 @@ public class StormHook : ModProjectile
 
     public override bool PreDrawExtras()
     {
-        for (int i = 1; i < GrappleChain.Points.Length; i++)
+        for (int i = 1; i < _chain.Points.Length; i++)
         {
-            var p1 = GrappleChain.Points[i - 1].Position - Main.screenPosition;
-            var p2 = GrappleChain.Points[i].Position - Main.screenPosition;
+            var p1 = _chain.Points[i - 1].Position - Main.screenPosition;
+            var p2 = _chain.Points[i].Position - Main.screenPosition;
             var center = (p1 + p2) / 2f;
             Color color = Lighting.GetColor((center + Main.screenPosition).ToTileCoordinates());
-            Main.EntitySpriteDraw(_chainTexture, center, null, color, p1.AngleTo(p2) + MathF.PI / 2f, _chainTexture.Size() / 2f, 1, SpriteEffects.None);
+            Vector2 scale = new Vector2(1, p1.Distance(p2) / _chain.SegmentLength);
+            
+            Main.EntitySpriteDraw(_chainTexture, center, _chainRectangles[i], color, p1.AngleTo(p2) + MathF.PI / 2f, _chainRectangles[i].Size() / 2f, scale, SpriteEffects.None);
 
             if (_chainGlowTexture != null)
             {
-                Main.EntitySpriteDraw(_chainGlowTexture, center, null, _chainGlowColor, p1.AngleTo(p2) + MathF.PI / 2f, _chainTexture.Size() / 2f, 1, SpriteEffects.None);
+                Main.EntitySpriteDraw(_chainGlowTexture, center, _chainRectangles[i], _chainGlowColor, p1.AngleTo(p2) + MathF.PI / 2f, _chainRectangles[i].Size() / 2f, scale, SpriteEffects.None);
             }
         }
 

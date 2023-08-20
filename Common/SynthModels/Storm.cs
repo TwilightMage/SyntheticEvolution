@@ -45,8 +45,7 @@ public class Storm : SynthModel
 
         if (_grappleChain != null)
         {
-            _grappleChain.HoldPosition = OwningPlayer.Center;
-            _grappleChain.UpdatePhysics();
+            OwningPlayer.velocity += _grappleChain.HoldBackForce * 0.05f;
         }
     }
 
@@ -118,6 +117,7 @@ public class Storm : SynthModel
         
         Main.projectile[_grappleProjId].Kill();
         _grappleProjId = -1;
+        _grappleChain = null;
     }
 
     private void SpawnGrapple(Projectile vanillaGrapple)
@@ -125,7 +125,7 @@ public class Storm : SynthModel
         (Texture2D chainTexture, Texture2D chainGlowTexture, Color chainGlowColor) = StormHook.GetChainTexture(vanillaGrapple.type);
         var hookTexture = TextureAssets.Projectile[vanillaGrapple.type].Value;
     
-        _grappleChain = Chain.Create(OwningPlayer.Center, vanillaGrapple.Center, chainTexture.Height);
+        _grappleChain = Chain.Create(OwningPlayer.Center, vanillaGrapple.Center, chainTexture.Height / StormHook.TextureSizeToSplitAmount(chainTexture.Size().ToPoint()));
         _grappleChain.Last.Fixed = true;
         _grappleChain.HoldPosition = OwningPlayer.Center;
         
@@ -134,7 +134,6 @@ public class Storm : SynthModel
         var newHookProj = (StormHook)Main.projectile[_grappleProjId].ModProjectile;
 
         newHookProj.Projectile.rotation = vanillaGrapple.rotation;
-        newHookProj.GrappleChain = _grappleChain;
-        newHookProj.Setup(hookTexture, chainTexture, chainGlowTexture, chainGlowColor, hookTexture.Size().ToPoint());
+        newHookProj.Setup(_grappleChain, hookTexture, chainTexture, chainGlowTexture, chainGlowColor, vanillaGrapple.Size.ToPoint());
     }
 }

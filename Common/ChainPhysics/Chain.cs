@@ -7,7 +7,8 @@ public class Chain
 {
     public ChainPoint[] Points;
     public float SegmentLength;
-    public Vector2 HoldPosition;
+    public Vector2? HoldPosition;
+    public Vector2 HoldBackForce;
 
     public float Gravity = 0.9f;
     public float Drag = 0.999f;
@@ -39,14 +40,6 @@ public class Chain
         if (Points.Length == 0) return;
         if (SegmentLength <= 0) return;
 
-        //if(mouse.buttonRaw & 1){
-        //    if(holding < 0){
-        //        holding = closestPoint(mouse.x,mouse.y);
-        //    }
-        //}else{
-        //    holding = -1;
-        //}
-
         for (int i = 0; i < Points.Length; i++)
         {
             if (Points[i].Fixed) continue;
@@ -56,10 +49,14 @@ public class Chain
             Points[i].Position += v;
             Points[i].Position.Y += Gravity;
         }
-
-        // attach the last link to the mouse
-        ChainPoint holdPoint = Points[0];
-        holdPoint.LastPosition = holdPoint.Position = HoldPosition;
+        
+        HoldBackForce = Vector2.Zero;
+        ChainPoint holdPoint = null;
+        if (HoldPosition.HasValue)
+        {
+            holdPoint = Points[0];
+            holdPoint.LastPosition = holdPoint.Position = HoldPosition.Value;
+        }
 
         for (var i = 0; i < Stiffness; i++)
         {
@@ -89,8 +86,12 @@ public class Chain
                     Points[j].Position += delta;
                 }
             }
-            
-            holdPoint.LastPosition = holdPoint.Position = HoldPosition;
+
+            if (holdPoint != null)
+            {
+                HoldBackForce += holdPoint.Position - HoldPosition.Value;
+                holdPoint.LastPosition = holdPoint.Position = HoldPosition.Value;
+            }
         }
 
         //for (int i = 0; i < vertices.Length; i++)
