@@ -87,6 +87,13 @@ namespace SyntheticEvolution
         {
             Main.spriteBatch.DrawString(FontAssets.MouseText.Value, Main.LocalPlayer.velocity.X.ToString(), new Vector2(700, 100), Color.White);
             Main.spriteBatch.DrawString(FontAssets.MouseText.Value, Main.LocalPlayer.velocity.Y.ToString(), new Vector2(700, 130), Color.White);
+
+            if (SynthPlayer.LocalSynthModel is { HaveCustomHotbar: true } synth)
+            {
+                synth.DrawHotbar();
+                
+                return;
+            }
             
             orig(self);
         }

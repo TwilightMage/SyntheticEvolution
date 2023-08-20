@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using Terraria;
+using Terraria.ModLoader.IO;
 
 namespace SyntheticEvolution.Common.SynthModels;
 
@@ -13,9 +15,10 @@ public abstract class SynthModel
 {
     public abstract string Name { get; }
     public virtual bool CanUseConventionalItems => true;
+    public virtual bool HaveCustomHotbar => false;
 
     public readonly SynthEquipment Equipment = new SynthEquipment();
-    
+
     public int playerId;
 
     public Player OwningPlayer => Main.player[playerId];
@@ -29,22 +32,46 @@ public abstract class SynthModel
         return Array.Empty<PartSlot>();
     }
 
+    public virtual void Save(TagCompound tag)
+    {
+        TagCompound equipmentTag = new TagCompound();
+
+        for (int i = 0; i < Equipment.NumParts; i++)
+        {
+            equipmentTag.Set(Equipment.GetSlot(i).Name, Equipment.GetPart(i));
+        }
+
+        tag.Set("Equipment", equipmentTag);
+    }
+
+    public virtual void Load(TagCompound tag)
+    {
+        TagCompound equipmentTag = tag.Get<TagCompound>("Equipment");
+
+        for (int i = 0; i < Equipment.NumParts; i++)
+        {
+            var slot = Equipment.GetSlot(i);
+            slot.TargetItem = equipmentTag.Get<Item>(slot.Name);
+        }
+    }
+
     public virtual void Update()
     {
-        
     }
-    
+
     public virtual void Grapple()
     {
-        
     }
 
     public virtual void GrappleMovement()
     {
-        
     }
 
     public virtual void HorizontalMovement()
+    {
+    }
+
+    public virtual void DrawHotbar()
     {
     }
 }

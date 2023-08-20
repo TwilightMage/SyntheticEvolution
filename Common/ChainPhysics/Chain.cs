@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Terraria;
 
@@ -11,7 +12,8 @@ public class Chain
     private float[] _segmentLengths;
     private float _normalSegmentLength;
     public Vector2? HoldPosition;
-    public Action<Vector2> HoldBack;
+    // Force opposite to HoldPosition will be sassed here, this function must return how much of it was accepted (from 0 to 1)
+    public Func<Vector2, (float, float)> HoldBack;
 
     public Vector2 Force = new Vector2(0, 0.4f);
     public float Drag = 0.999f;
@@ -121,60 +123,44 @@ public class Chain
             holdPoint = _points[0];
             holdPoint.LastPosition = holdPoint.Position = HoldPosition.Value;
         }
+        
 
         for (var i = 0; i < Stiffness; i++)
         {
             for (int j = 1; j < _points.Length; j++)
             {
-                var delta = _points[j].Position - _points[j - 1].Position;
-                var deltaLength = delta.Length();
-                var fraction = ((_segmentLengths[j - 1] - deltaLength) / deltaLength) / 2;
-                delta *= fraction;
+                Vector2 curSegmentVector = _points[j].Position - _points[j - 1].Position;
+                float curSegmentLength = curSegmentVector.Length();
+                float fraction = ((_segmentLengths[j - 1] - curSegmentLength) / curSegmentLength) / 2;
+                curSegmentVector *= fraction;
                 if (_points[j].Fixed)
                 {
                     if (!_points[j - 1].Fixed)
                     {
-                        _points[j - 1].Position -= delta * 2;
+                        _points[j - 1].Position -= curSegmentVector * 2;
                     }
                 }
                 else if (_points[j - 1].Fixed)
                 {
                     if (!_points[j].Fixed)
                     {
-                        _points[j].Position += delta * 2;
+                        _points[j].Position += curSegmentVector * 2;
                     }
                 }
                 else
                 {
-                    _points[j - 1].Position -= delta;
-                    _points[j].Position += delta;
+                    _points[j - 1].Position -= curSegmentVector;
+                    _points[j].Position += curSegmentVector;
                 }
             }
 
             if (holdPoint != null)
             {
                 Vector2 delta = HoldPosition.Value - holdPoint.Position;
-                if (HoldBack != null)
-                {
-                    HoldBack(-delta / 2);
-                    holdPoint.LastPosition = holdPoint.Position = HoldPosition.Value + delta / 2;
-                }
-                else
-                {
-                    holdPoint.LastPosition = holdPoint.Position = HoldPosition.Value;
-                }
+                (float takenX, float takenY) = HoldBack?.Invoke(-delta) ?? (0, 0);
+                holdPoint.LastPosition.X = holdPoint.Position.X += delta.X * (1 - takenX);
+                holdPoint.LastPosition.Y = holdPoint.Position.Y += delta.Y * (1 - takenY);
             }
         }
-
-        //for (int i = 0; i < vertices.Length; i++)
-        //{
-        //    float dx = (vertices[i].X - vertices[i].LX) * DRAG;
-        //    float dy = (vertices[i].Y - vertices[i].LY) * DRAG;
-        //    vertices[i].LX = vertices[i].X;
-        //    vertices[i].LY = vertices[i].Y;
-        //    vertices[i].X += dx;
-        //    vertices[i].Y += dy;
-        //    vertices[i].Y += GRAV;  
-        //}
     }
 }

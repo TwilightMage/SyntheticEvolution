@@ -1,6 +1,7 @@
 ﻿using SyntheticEvolution.Common.SynthModels;
 using SyntheticEvolution.Common.UI;
 using System;
+using System.Linq;
 using Terraria;
 using Terraria.UI;
 
@@ -26,8 +27,9 @@ public class SynthEquipment
     }
 
     public PartSlot GetSlot(int slotIndex) => _slots[slotIndex];
+    public PartSlot GetSlot(string slotName) => _slots.FirstOrDefault(slot => slot.Name == slotName);
 
-    public UIPartSlot CreateItemSlot(int slotIndex) => new UIPartSlot(_slots[slotIndex]);
+    public UIPartSlot CreateUIItemSlot(int slotIndex) => new UIPartSlot(_slots[slotIndex]);
 
     public void SetupFrom(SynthModel synth)
     {

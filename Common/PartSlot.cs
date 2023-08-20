@@ -22,6 +22,7 @@ public class PartSlot
         Visor,
     }
 
+    public string Name;
     public Type SynthType;
     public SocketTypeEnum SocketType;
     public Vector2 Position;
@@ -32,13 +33,15 @@ public class PartSlot
         get => _target.GetPart(_targetIndex);
         set => _target.SetPart(value, _targetIndex);
     }
+
     public SynthPart TargetPart => TargetItem.ModItem as SynthPart;
 
     private SynthEquipment _target;
     private int _targetIndex;
 
-    public PartSlot(SocketTypeEnum socketType, Type synthType, Vector2 position, Func<Item, bool> moduleFitCheck = null)
+    public PartSlot(string name, SocketTypeEnum socketType, Type synthType, Vector2 position, Func<Item, bool> moduleFitCheck = null)
     {
+        Name = name;
         SocketType = socketType;
         SynthType = synthType;
         Position = position;
@@ -50,7 +53,7 @@ public class PartSlot
         _target = target;
         _targetIndex = targetIndex;
     }
-    
+
     public bool CanFitPart(Item item)
     {
         if (item.ModItem is SynthPart part && SocketType == part.SocketType && (part.SynthTypes.Length == 0 || part.SynthTypes.Contains(SynthType))) return true;

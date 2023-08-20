@@ -11,7 +11,7 @@ namespace SyntheticEvolution.Common;
 
 public class SynthPlayer : ModPlayer
 {
-public static SynthModel LocalSynthModel;
+    public static SynthModel LocalSynthModel;
 
     private static Dictionary<string, Type> _synthTypes = new Dictionary<string, Type>();
 
@@ -44,27 +44,27 @@ public static SynthModel LocalSynthModel;
             {
                 Player.mount.SetMount(ModContent.MountType<SynthMount>(), Player);
             }
-            
+
             _synthModel.Equipment.SetupFrom(_synthModel);
 
             return true;
         }
-        
+
         if (Player.frozen || Player.tongued || Player.webbed || Player.stoned || Player.gravDir == -1f || Player.dead || Player.noItems)
             return false;
-        
-        
+
+
         if (_synthTypes.TryGetValue(key, out Type type))
         {
             _synthModel = (SynthModel)Activator.CreateInstance(type);
             _synthModel.Equipment.SetupFrom(_synthModel);
             _synthModel.playerId = Player.whoAmI;
 
-            if (Player == Main.LocalPlayer)
+            if (Player.whoAmI == Main.myPlayer)
             {
                 LocalSynthModel = _synthModel;
             }
-            
+
             Player.mount.SetMount(ModContent.MountType<SynthMount>(), Player);
 
             return true;
@@ -72,7 +72,7 @@ public static SynthModel LocalSynthModel;
 
         return false;
     }
-    
+
     public bool SetSynthModel<T>() where T : SynthModel
     {
         if (_synthModel?.GetType() == typeof(T))
@@ -83,10 +83,10 @@ public static SynthModel LocalSynthModel;
             }
 
             _synthModel.Equipment.SetupFrom(_synthModel);
-            
+
             return true;
         }
-        
+
         if (Player.frozen || Player.tongued || Player.webbed || Player.stoned || Player.gravDir == -1f || Player.dead || Player.noItems)
             return false;
 
@@ -95,12 +95,12 @@ public static SynthModel LocalSynthModel;
             _synthModel = Activator.CreateInstance<T>();
             _synthModel.Equipment.SetupFrom(_synthModel);
             _synthModel.playerId = Player.whoAmI;
-            
-            if (Player == Main.LocalPlayer)
+
+            if (Player.whoAmI == Main.myPlayer)
             {
                 LocalSynthModel = _synthModel;
             }
-            
+
             Player.mount.SetMount(ModContent.MountType<SynthMount>(), Player);
 
             return true;
@@ -113,18 +113,24 @@ public static SynthModel LocalSynthModel;
     {
         _synthModel.playerId = -1;
         _synthModel = null;
-        
-        if (Player == Main.LocalPlayer)
+
+        if (Player.whoAmI == Main.myPlayer)
         {
             LocalSynthModel = null;
         }
-        
+
         if (Player.mount._active) Player.mount.Dismount(Player);
     }
 
     public override void SaveData(TagCompound tag)
     {
-        tag["SynthModel"] = _synthModel?.GetType().GetAttribute<SynthModelAttribute>().Key;
+        if (_synthModel != null)
+        {
+            tag["SynthModel"] = _synthModel.GetType().GetAttribute<SynthModelAttribute>().Key;
+            TagCompound synthData = new TagCompound();
+            _synthModel.Save(synthData);
+            tag["SynthData"] = synthData;
+        }
     }
 
     public override void LoadData(TagCompound tag)
@@ -133,6 +139,12 @@ public static SynthModel LocalSynthModel;
         if (modelKey != null)
         {
             SetSynthModel(modelKey);
+
+            var modelData = tag.Get<TagCompound>("SynthData");
+            if (modelData != null)
+            {
+                SynthModel.Load(modelData);
+            }
         }
         else
         {

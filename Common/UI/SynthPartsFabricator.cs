@@ -51,7 +51,7 @@ public class SynthPartsFabricator : UIState
             
             for (int i = 0; i < synth.Equipment.NumParts; i++)
             {
-                UIPartSlot slotUI = synth.Equipment.CreateItemSlot(i);
+                UIPartSlot slotUI = synth.Equipment.CreateUIItemSlot(i);
                 slotUI.Left.Set(synth.Equipment.GetSlot(i).Position.X, 0);
                 slotUI.Top.Set(synth.Equipment.GetSlot(i).Position.Y, 0);
                 _slotsPanel.Append(slotUI);

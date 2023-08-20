@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using ReLogic.Content;
 using SyntheticEvolution.Common.ChainPhysics;
 using SyntheticEvolution.Content.Projectiles;
 using System;
@@ -8,6 +9,7 @@ using Terraria.Audio;
 using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.UI;
 
 namespace SyntheticEvolution.Common.SynthModels;
 
@@ -27,9 +29,13 @@ public class Storm : SynthModel
     public PartSlot RightArmSlot => Equipment.GetSlot(3);
     public PartSlot LegsSlot => Equipment.GetSlot(4);
     public PartSlot GrappleSlot => Equipment.GetSlot(5);
+    
+    private static Asset<Texture2D> _hotbarSlotTexture;
+    private static Asset<Texture2D> _hotbarSlotTextureBorder;
 
     public override string Name => "Storm";
     public override bool CanUseConventionalItems => false;
+    public override bool HaveCustomHotbar => true;
 
     private int _grappleProjId = -1;
     private float _grappleLengthMax = 16 * 50;
@@ -42,7 +48,15 @@ public class Storm : SynthModel
 
     public override PartSlot[] CreateEquipmentSlots()
     {
-        return new[] { new PartSlot(PartSlot.SocketTypeEnum.Head, GetType(), new Vector2(0, 0)), new PartSlot(PartSlot.SocketTypeEnum.Chest, GetType(), new Vector2(0, 50)), new PartSlot(PartSlot.SocketTypeEnum.Arm, GetType(), new Vector2(0, 100)), new PartSlot(PartSlot.SocketTypeEnum.Arm, GetType(), new Vector2(0, 150)), new PartSlot(PartSlot.SocketTypeEnum.Legs, GetType(), new Vector2(0, 200)), new PartSlot(PartSlot.SocketTypeEnum.Module, null, new Vector2(75, 0), moduleFitCheck: (item) => ContentSamples.ProjectilesByType[item.shoot].aiStyle == ProjAIStyleID.Hook) };
+        return new[]
+        {
+            new PartSlot("head", PartSlot.SocketTypeEnum.Head, GetType(), new Vector2(0, 0)), 
+            new PartSlot("chest", PartSlot.SocketTypeEnum.Chest, GetType(), new Vector2(0, 50)), 
+            new PartSlot("left_arm", PartSlot.SocketTypeEnum.Arm, GetType(), new Vector2(0, 100)), 
+            new PartSlot("right_arm", PartSlot.SocketTypeEnum.Arm, GetType(), new Vector2(0, 150)), 
+            new PartSlot("legs", PartSlot.SocketTypeEnum.Legs, GetType(), new Vector2(0, 200)),
+            new PartSlot("hook", PartSlot.SocketTypeEnum.Module, null, new Vector2(75, 0), moduleFitCheck: (item) => ContentSamples.ProjectilesByType[item.shoot].aiStyle == ProjAIStyleID.Hook)
+        };
     }
 
     public override void Update()
@@ -50,7 +64,7 @@ public class Storm : SynthModel
         base.Update();
 
         var player = OwningPlayer;
-        
+
         //player.velocity = Vector2.Zero;
 
         if (_grappleChain != null)
@@ -120,9 +134,9 @@ public class Storm : SynthModel
             var item = GrappleSlot.TargetItem;
 
             SoundEngine.PlaySound(item.UseSound, player.position);
-            
+
             // TODO: Network sync
-            
+
             int type = item.shoot;
             float shootSpeed = item.shootSpeed;
             int damage = item.damage;
@@ -155,7 +169,7 @@ public class Storm : SynthModel
         base.GrappleMovement();
 
         var player = OwningPlayer;
-        
+
         if (player.grappling[0] < 0) return;
 
         var oldHookProj = Main.projectile[player.grappling[0]];
@@ -169,7 +183,7 @@ public class Storm : SynthModel
     private void KillGrapple()
     {
         if (_grappleProjId < 0) return;
-        
+
         ((StormHook)Main.projectile[_grappleProjId].ModProjectile).ReelBack();
         _grappleProjId = -1;
         _grappleChain.HoldBack = null;
@@ -179,27 +193,58 @@ public class Storm : SynthModel
 
     private void SpawnGrapple(Projectile vanillaGrapple)
     {
+        var player = OwningPlayer;
+        
         (Texture2D chainTexture, Texture2D chainGlowTexture, Color chainGlowColor) = StormHook.GetChainTexture(vanillaGrapple.type);
         var hookTexture = TextureAssets.Projectile[vanillaGrapple.type].Value;
-    
-        _grappleChain = Chain.Create(OwningPlayer.Center, vanillaGrapple.Center, chainTexture.Height / StormHook.TextureSizeToSplitAmount(chainTexture.Size().ToPoint()));
+
+        _grappleChain = Chain.Create(player.Center, vanillaGrapple.Center, chainTexture.Height / StormHook.TextureSizeToSplitAmount(chainTexture.Size().ToPoint()));
         _grappleChain.LastPoint.Fixed = true;
-        _grappleChain.HoldPosition = OwningPlayer.Center;
-        _grappleChain.HoldBack = (delta) =>
+        _grappleChain.HoldPosition = player.Center;
+        _grappleChain.HoldBack = (force) =>
         {
-            OwningPlayer.velocity += delta;
+            float receiveX = 0.5f;
+            float receiveY = 0.5f;
+
+            bool onGround = Collision.SolidTiles(player.BottomLeft + new Vector2(0, 1), player.width, 1, true);
+            
+            if (onGround)
+            {
+                if (force.Y > -1) receiveY = 0;
+            
+                receiveX = MathHelper.Clamp(force.X * 0.8f, 0, 1);
+            }
+
+            player.velocity.X += force.X * receiveX * 0.5f;
+            player.velocity.Y += force.Y * receiveY * 0.5f;
+
+            return (receiveX, receiveY);
         };
-        
+
         _grappleProjId = Projectile.NewProjectile(null, vanillaGrapple.Center, Vector2.Zero, ModContent.ProjectileType<StormHook>(), 0, 0, playerId);
-        
+
         var newHookProj = (StormHook)Main.projectile[_grappleProjId].ModProjectile;
 
         newHookProj.Projectile.rotation = vanillaGrapple.rotation;
         newHookProj.Setup(_grappleChain, hookTexture, chainTexture, chainGlowTexture, chainGlowColor, vanillaGrapple.Size.ToPoint());
     }
 
-    public override void HorizontalMovement()
+    public override void DrawHotbar()
     {
-        base.HorizontalMovement();
+        base.DrawHotbar();
+
+        var player = OwningPlayer;
+
+        _hotbarSlotTexture ??= ModContent.Request<Texture2D>("SyntheticEvolution/Assets/Textures/UI/StormHotbarSlot", AssetRequestMode.ImmediateLoad);
+        _hotbarSlotTextureBorder ??= ModContent.Request<Texture2D>("SyntheticEvolution/Assets/Textures/UI/StormHotbarSlotBorder", AssetRequestMode.ImmediateLoad);
+
+        for (int i = 0; i < 4; i++)
+        {
+            int slotSize = 42;
+            Rectangle rect = new Rectangle(20 + (slotSize + 10) * i, 20, slotSize, slotSize);
+            Terraria.Utils.DrawSplicedPanel(Main.spriteBatch, _hotbarSlotTexture.Value, rect.X, rect.Y, rect.Width, rect.Height, 12, 12, 12, 12, Color.White * 0.25f);
+            if (i == player.selectedItem) Terraria.Utils.DrawSplicedPanel(Main.spriteBatch, _hotbarSlotTextureBorder.Value, rect.X, rect.Y, rect.Width, rect.Height, 12, 12, 12, 12, Main.OurFavoriteColor);
+            ItemSlot.DrawItemIcon(player.inventory[i], 0, Main.spriteBatch, rect.Center(), 1f, 28f, Color.White);
+        }
     }
 }
