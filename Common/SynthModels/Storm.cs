@@ -36,7 +36,6 @@ public class Storm : SynthModel
     private float _grappleLengthMin = 16 * 4;
     private Chain _grappleChain = null;
     private float _grappleReelSpeed = 0f;
-    private Vector2 _oldBackForce = Vector2.Zero;
 
     private bool _wasControlUp;
     private bool _wasControlDown;
@@ -102,12 +101,6 @@ public class Storm : SynthModel
                     _grappleChain.IncreaseFromStart(-reelOut);
                 }
             }
-
-            var backForce = _grappleChain.HoldBackForce * 0.025f;
-            var backForceDelta = backForce - _oldBackForce;
-            _oldBackForce = backForce;
-            player.velocity += backForce;
-            //player.position += _grappleChain.HoldBackForce * 0.1f;
         }
     }
 
@@ -177,8 +170,9 @@ public class Storm : SynthModel
     {
         if (_grappleProjId < 0) return;
         
-        Main.projectile[_grappleProjId].Kill();
+        ((StormHook)Main.projectile[_grappleProjId].ModProjectile).ReelBack();
         _grappleProjId = -1;
+        _grappleChain.HoldBack = null;
         _grappleChain = null;
         _grappleReelSpeed = 0;
     }
@@ -191,6 +185,10 @@ public class Storm : SynthModel
         _grappleChain = Chain.Create(OwningPlayer.Center, vanillaGrapple.Center, chainTexture.Height / StormHook.TextureSizeToSplitAmount(chainTexture.Size().ToPoint()));
         _grappleChain.LastPoint.Fixed = true;
         _grappleChain.HoldPosition = OwningPlayer.Center;
+        _grappleChain.HoldBack = (delta) =>
+        {
+            OwningPlayer.velocity += delta;
+        };
         
         _grappleProjId = Projectile.NewProjectile(null, vanillaGrapple.Center, Vector2.Zero, ModContent.ProjectileType<StormHook>(), 0, 0, playerId);
         

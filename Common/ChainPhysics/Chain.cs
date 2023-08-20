@@ -11,9 +11,9 @@ public class Chain
     private float[] _segmentLengths;
     private float _normalSegmentLength;
     public Vector2? HoldPosition;
-    public Vector2 HoldBackForce;
+    public Action<Vector2> HoldBack;
 
-    public float Gravity = 0.4f;
+    public Vector2 Force = new Vector2(0, 0.4f);
     public float Drag = 0.999f;
     public int Stiffness = 12;
 
@@ -64,6 +64,17 @@ public class Chain
 
     public float CalculateLength() => _segmentLengths.Sum();
 
+    public float CalculateVisualLength()
+    {
+        float sum = 0;
+        for (int i = 0; i < _points.Length - 1; i++)
+        {
+            sum += _points[i].Position.Distance(_points[i + 1].Position);
+        }
+
+        return sum;
+    }
+
     public void IncreaseFromStart(float amount)
     {
         if (_normalSegmentLength - _segmentLengths[0] <= amount)
@@ -101,10 +112,9 @@ public class Chain
             var v = (_points[i].Position - _points[i].LastPosition) * Drag;
             _points[i].LastPosition = _points[i].Position;
             _points[i].Position += v;
-            _points[i].Position.Y += Gravity;
+            _points[i].Position += Force;
         }
 
-        HoldBackForce = Vector2.Zero;
         ChainPoint holdPoint = null;
         if (HoldPosition.HasValue)
         {
@@ -143,8 +153,16 @@ public class Chain
 
             if (holdPoint != null)
             {
-                HoldBackForce += holdPoint.Position - HoldPosition.Value;
-                holdPoint.LastPosition = holdPoint.Position = HoldPosition.Value;
+                Vector2 delta = HoldPosition.Value - holdPoint.Position;
+                if (HoldBack != null)
+                {
+                    HoldBack(-delta / 2);
+                    holdPoint.LastPosition = holdPoint.Position = HoldPosition.Value + delta / 2;
+                }
+                else
+                {
+                    holdPoint.LastPosition = holdPoint.Position = HoldPosition.Value;
+                }
             }
         }
 
