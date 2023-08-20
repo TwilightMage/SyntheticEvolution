@@ -25,7 +25,6 @@ public class StormHook : ModProjectile
     private Texture2D _texture;
     private Texture2D _chainTexture;
     private Texture2D _chainGlowTexture;
-    private Rectangle[] _chainRectangles;
     private Color _chainGlowColor;
 
     public override void SetDefaults()
@@ -121,13 +120,6 @@ public class StormHook : ModProjectile
         _chainGlowTexture = chainGlowTexture;
         _chainGlowColor = chainGlowColor;
 
-        int splitAmount = TextureSizeToSplitAmount(_chainTexture.Bounds.Size().ToPoint());
-        _chainRectangles = new Rectangle[chain.Points.Length];
-        for (int i = 0; i < chain.Points.Length; i++)
-        {
-            _chainRectangles[i] = new Rectangle(0, _chainTexture.Height / splitAmount * (i % splitAmount), _chainTexture.Width, _chainTexture.Height / splitAmount);
-        }
-        
         Projectile.width = size.X;
         Projectile.height = size.Y;
     }
@@ -135,7 +127,7 @@ public class StormHook : ModProjectile
     public override void AI()
     {
         base.AI();
-        
+
         _chain.HoldPosition = Main.player[Projectile.owner].Center;
         _chain.UpdatePhysics();
 
@@ -146,8 +138,8 @@ public class StormHook : ModProjectile
     {
         if (_chain != null)
         {
-            var p1 = _chain.Points[^2].Position;
-            var p2 = _chain.Points[^1].Position;
+            var p1 = _chain.GetPoint(^2).Position;
+            var p2 = _chain.GetPoint(^1).Position;
             Projectile.rotation = p1.AngleTo(p2) + MathF.PI / 2;
         }
 
@@ -158,19 +150,32 @@ public class StormHook : ModProjectile
 
     public override bool PreDrawExtras()
     {
-        for (int i = 1; i < _chain.Points.Length; i++)
+        int splitAmount = TextureSizeToSplitAmount(_chainTexture.Bounds.Size().ToPoint());
+        for (int i = 0; i < _chain.NumPoints - 1; i++)
         {
-            var p1 = _chain.Points[i - 1].Position - Main.screenPosition;
-            var p2 = _chain.Points[i].Position - Main.screenPosition;
+            Rectangle frame = new Rectangle(0, _chainTexture.Height / splitAmount * ((_chain.NumPoints - i) % splitAmount), _chainTexture.Width, _chainTexture.Height / splitAmount);
+
+            var p1 = _chain.GetPoint(i).Position - Main.screenPosition;
+            var p2 = _chain.GetPoint(i + 1).Position - Main.screenPosition;
             var center = (p1 + p2) / 2f;
             Color color = Lighting.GetColor((center + Main.screenPosition).ToTileCoordinates());
-            Vector2 scale = new Vector2(1, p1.Distance(p2) / _chain.SegmentLength);
-            
-            Main.EntitySpriteDraw(_chainTexture, center, _chainRectangles[i], color, p1.AngleTo(p2) + MathF.PI / 2f, _chainRectangles[i].Size() / 2f, scale, SpriteEffects.None);
+
+            float segmentLength = _chain.GetSegmentLength(i);
+            Vector2 scale = Vector2.One;
+            if (segmentLength < 0.1f)
+            {
+                scale.Y = 0.1f;
+            }
+            else
+            {
+                scale.Y = p1.Distance(p2) / segmentLength;
+            }
+
+            Main.EntitySpriteDraw(_chainTexture, center, frame, color, p1.AngleTo(p2) + MathF.PI / 2f, frame.Size() / 2f, scale, SpriteEffects.None);
 
             if (_chainGlowTexture != null)
             {
-                Main.EntitySpriteDraw(_chainGlowTexture, center, _chainRectangles[i], _chainGlowColor, p1.AngleTo(p2) + MathF.PI / 2f, _chainRectangles[i].Size() / 2f, scale, SpriteEffects.None);
+                Main.EntitySpriteDraw(_chainGlowTexture, center, frame, _chainGlowColor, p1.AngleTo(p2) + MathF.PI / 2f, frame.Size() / 2f, scale, SpriteEffects.None);
             }
         }
 

@@ -32,9 +32,14 @@ public class Storm : SynthModel
     public override bool CanUseConventionalItems => false;
 
     private int _grappleProjId = -1;
-    private float _grappleDistanceLimit = 0;
+    private float _grappleLengthMax = 16 * 50;
+    private float _grappleLengthMin = 16 * 4;
     private Chain _grappleChain = null;
-    private float _walkVelocity = 0;
+    private float _grappleReelSpeed = 0f;
+    private Vector2 _oldBackForce = Vector2.Zero;
+
+    private bool _wasControlUp;
+    private bool _wasControlDown;
 
     public override PartSlot[] CreateEquipmentSlots()
     {
@@ -44,12 +49,65 @@ public class Storm : SynthModel
     public override void Update()
     {
         base.Update();
+
+        var player = OwningPlayer;
         
-        //OwningPlayer.velocity = Vector2.Zero;
+        //player.velocity = Vector2.Zero;
 
         if (_grappleChain != null)
         {
-            OwningPlayer.velocity += _grappleChain.HoldBackForce * 0.05f;
+            if (player.controlUp && !_wasControlUp && !player.controlDown)
+            {
+                // >0 = reel in
+                if (_grappleReelSpeed == 0) _grappleReelSpeed = 3;
+                else if (_grappleReelSpeed > 0) _grappleReelSpeed = 6;
+                else _grappleReelSpeed = 0;
+            }
+            else if (player.controlDown && !_wasControlDown && !player.controlUp)
+            {
+                // <0 = reel out
+                if (_grappleReelSpeed == 0) _grappleReelSpeed = -3;
+                else if (_grappleReelSpeed < 0) _grappleReelSpeed = -6;
+                else _grappleReelSpeed = 0;
+            }
+
+            _wasControlUp = player.controlUp;
+            _wasControlDown = player.controlDown;
+
+            if (_grappleReelSpeed > 0)
+            {
+                float currentLen = _grappleChain.CalculateLength();
+                float reelIn = MathF.Min(_grappleReelSpeed, currentLen - _grappleLengthMin);
+
+                if (reelIn < 0.01f)
+                {
+                    _grappleReelSpeed = 0;
+                }
+                else
+                {
+                    _grappleChain.DecreaseFromStart(reelIn);
+                }
+            }
+            else if (_grappleReelSpeed < 0)
+            {
+                float currentLen = _grappleChain.CalculateLength();
+                float reelOut = MathF.Max(_grappleReelSpeed, currentLen - _grappleLengthMax);
+
+                if (reelOut > -0.01f)
+                {
+                    _grappleReelSpeed = 0;
+                }
+                else
+                {
+                    _grappleChain.IncreaseFromStart(-reelOut);
+                }
+            }
+
+            var backForce = _grappleChain.HoldBackForce * 0.025f;
+            var backForceDelta = backForce - _oldBackForce;
+            _oldBackForce = backForce;
+            player.velocity += backForce;
+            //player.position += _grappleChain.HoldBackForce * 0.1f;
         }
     }
 
@@ -95,7 +153,7 @@ public class Storm : SynthModel
             var projId = Projectile.NewProjectile(player.GetSource_ItemUse(item), startPosition, Speed, type, damage, knockBack, Main.myPlayer);
             var hook = Main.projectile[projId];
 
-            _grappleDistanceLimit = 16 * 10;
+            _grappleLengthMax = 16 * 50;
         }
     }
 
@@ -122,6 +180,7 @@ public class Storm : SynthModel
         Main.projectile[_grappleProjId].Kill();
         _grappleProjId = -1;
         _grappleChain = null;
+        _grappleReelSpeed = 0;
     }
 
     private void SpawnGrapple(Projectile vanillaGrapple)
@@ -130,7 +189,7 @@ public class Storm : SynthModel
         var hookTexture = TextureAssets.Projectile[vanillaGrapple.type].Value;
     
         _grappleChain = Chain.Create(OwningPlayer.Center, vanillaGrapple.Center, chainTexture.Height / StormHook.TextureSizeToSplitAmount(chainTexture.Size().ToPoint()));
-        _grappleChain.Last.Fixed = true;
+        _grappleChain.LastPoint.Fixed = true;
         _grappleChain.HoldPosition = OwningPlayer.Center;
         
         _grappleProjId = Projectile.NewProjectile(null, vanillaGrapple.Center, Vector2.Zero, ModContent.ProjectileType<StormHook>(), 0, 0, playerId);
@@ -144,25 +203,5 @@ public class Storm : SynthModel
     public override void HorizontalMovement()
     {
         base.HorizontalMovement();
-
-        var player = OwningPlayer;
-
-        if (Collision.SolidTiles(player.position, player.width, player.height))
-        {
-            if (player.controlLeft)
-            {
-                _walkVelocity = MathHelper.Clamp(_walkVelocity - 0.1f, -2, 2);
-            }
-            else if (player.controlRight)
-            {
-                _walkVelocity = MathHelper.Clamp(_walkVelocity + 0.1f, -2, 2);
-            }
-            else
-            {
-                _walkVelocity -= MathF.Sign(_walkVelocity) * 0.1f;
-            }
-            
-            player.velocity.X += _walkVelocity;
-        }
     }
 }
