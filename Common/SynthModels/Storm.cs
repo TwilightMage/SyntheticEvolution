@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using SyntheticEvolution.Common.ChainPhysics;
 using SyntheticEvolution.Content.Projectiles;
+using System;
 using Terraria;
 using Terraria.Audio;
 using Terraria.GameContent;
@@ -33,6 +34,7 @@ public class Storm : SynthModel
     private int _grappleProjId = -1;
     private float _grappleDistanceLimit = 0;
     private Chain _grappleChain = null;
+    private float _walkVelocity = 0;
 
     public override PartSlot[] CreateEquipmentSlots()
     {
@@ -42,6 +44,8 @@ public class Storm : SynthModel
     public override void Update()
     {
         base.Update();
+        
+        //OwningPlayer.velocity = Vector2.Zero;
 
         if (_grappleChain != null)
         {
@@ -135,5 +139,30 @@ public class Storm : SynthModel
 
         newHookProj.Projectile.rotation = vanillaGrapple.rotation;
         newHookProj.Setup(_grappleChain, hookTexture, chainTexture, chainGlowTexture, chainGlowColor, vanillaGrapple.Size.ToPoint());
+    }
+
+    public override void HorizontalMovement()
+    {
+        base.HorizontalMovement();
+
+        var player = OwningPlayer;
+
+        if (Collision.SolidTiles(player.position, player.width, player.height))
+        {
+            if (player.controlLeft)
+            {
+                _walkVelocity = MathHelper.Clamp(_walkVelocity - 0.1f, -2, 2);
+            }
+            else if (player.controlRight)
+            {
+                _walkVelocity = MathHelper.Clamp(_walkVelocity + 0.1f, -2, 2);
+            }
+            else
+            {
+                _walkVelocity -= MathF.Sign(_walkVelocity) * 0.1f;
+            }
+            
+            player.velocity.X += _walkVelocity;
+        }
     }
 }

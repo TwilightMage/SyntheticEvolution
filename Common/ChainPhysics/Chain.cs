@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
+using Terraria;
 
 namespace SyntheticEvolution.Common.ChainPhysics;
 
@@ -7,22 +8,23 @@ public class Chain
 {
     public ChainPoint[] Points;
     public float SegmentLength;
+    public float PointRadius = 4;
     public Vector2? HoldPosition;
     public Vector2 HoldBackForce;
 
-    public float Gravity = 0.9f;
+    public float Gravity = 0.4f;
     public float Drag = 0.999f;
     public int Stiffness = 12;
 
     public ChainPoint First => Points[0];
     public ChainPoint Last => Points[^1];
-    
+
     public static Chain Create(Vector2 start, Vector2 end, float segmentLength)
     {
         var chain = new Chain();
         chain.Points = new ChainPoint[(int)MathF.Ceiling(Vector2.Distance(start, end) / segmentLength) + 1];
         chain.SegmentLength = segmentLength;
-        
+
         Vector2 normal = Vector2.Normalize(end - start);
         for (int i = 0; i < chain.Points.Length; i++)
         {
@@ -49,7 +51,7 @@ public class Chain
             Points[i].Position += v;
             Points[i].Position.Y += Gravity;
         }
-        
+
         HoldBackForce = Vector2.Zero;
         ChainPoint holdPoint = null;
         if (HoldPosition.HasValue)

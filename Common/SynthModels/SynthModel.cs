@@ -43,4 +43,8 @@ public abstract class SynthModel
     {
         
     }
+
+    public virtual void HorizontalMovement()
+    {
+    }
 }

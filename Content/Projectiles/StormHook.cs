@@ -110,7 +110,7 @@ public class StormHook : ModProjectile
 
     public static int TextureSizeToSplitAmount(Point textureSize)
     {
-        return (int)MathF.Floor((float)textureSize.Y / textureSize.X);
+        return (int)MathF.Ceiling((float)textureSize.Y / textureSize.X);
     }
 
     public void Setup(Chain chain, Texture2D texture, Texture2D chainTexture, Texture2D chainGlowTexture, Color chainGlowColor, Point size)

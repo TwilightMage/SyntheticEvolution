@@ -1,7 +1,10 @@
+using Microsoft.Xna.Framework;
+using ReLogic.Graphics;
 using SyntheticEvolution.Common;
 using SyntheticEvolution.Common.SynthModels;
 using SyntheticEvolution.Common.Systems;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ModLoader;
 
 namespace SyntheticEvolution
@@ -18,6 +21,8 @@ namespace SyntheticEvolution
             On_Player.QuickGrapple += QuickGrapple;
             On_Player.ToggleInv += ToggleInv;
             On_Player.GrappleMovement += GrappleMovement;
+            //On_Player.HorizontalMovement += HorizontalMovement;
+            On_Main.DrawInterface_30_Hotbar += DrawHotbar;
         }
 
         public override void Unload()
@@ -28,6 +33,8 @@ namespace SyntheticEvolution
             On_Player.QuickGrapple -= QuickGrapple;
             On_Player.ToggleInv -= ToggleInv;
             On_Player.GrappleMovement -= GrappleMovement;
+            //On_Player.HorizontalMovement -= HorizontalMovement;
+            On_Main.DrawInterface_30_Hotbar -= DrawHotbar;
         }
 
         private void QuickMount(On_Player.orig_QuickMount orig, Player self)
@@ -73,6 +80,26 @@ namespace SyntheticEvolution
                 return;
             }
 
+            orig(self);
+        }
+        
+        private void DrawHotbar(On_Main.orig_DrawInterface_30_Hotbar orig, Main self)
+        {
+            Main.spriteBatch.DrawString(FontAssets.MouseText.Value, Main.LocalPlayer.velocity.X.ToString(), new Vector2(700, 100), Color.White);
+            Main.spriteBatch.DrawString(FontAssets.MouseText.Value, Main.LocalPlayer.velocity.Y.ToString(), new Vector2(700, 130), Color.White);
+            
+            orig(self);
+        }
+        
+        private void HorizontalMovement(On_Player.orig_HorizontalMovement orig, Player self)
+        {
+            if (SynthPlayer.LocalSynthModel != null)
+            {
+                SynthPlayer.LocalSynthModel.HorizontalMovement();
+                
+                return;
+            }
+            
             orig(self);
         }
     }
