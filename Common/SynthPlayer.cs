@@ -137,6 +137,6 @@ public class SynthPlayer : ModPlayer
 
     public override void PreUpdate()
     {
-        SynthModel?.Update();
+        SynthModel?.FixedUpdate();
     }
 }

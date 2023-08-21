@@ -3,6 +3,7 @@ using ReLogic.Graphics;
 using SyntheticEvolution.Common;
 using SyntheticEvolution.Common.SynthModels;
 using SyntheticEvolution.Common.Systems;
+using System;
 using Terraria;
 using Terraria.GameContent;
 using Terraria.ModLoader;
@@ -12,28 +13,30 @@ namespace SyntheticEvolution
     public partial class SyntheticEvolution : Mod
     {
         public static SyntheticEvolution Instance;
-    
+
         public override void Load()
         {
             Instance = this;
-            
+
             On_Player.QuickMount += QuickMount;
             On_Player.QuickGrapple += QuickGrapple;
             On_Player.ToggleInv += ToggleInv;
             On_Player.GrappleMovement += GrappleMovement;
             On_Player.HorizontalMovement += HorizontalMovement;
+            On_Main.Update += Update;
             On_Main.DrawInterface_30_Hotbar += DrawHotbar;
         }
 
         public override void Unload()
         {
             Instance = null;
-            
+
             On_Player.QuickMount -= QuickMount;
             On_Player.QuickGrapple -= QuickGrapple;
             On_Player.ToggleInv -= ToggleInv;
             On_Player.GrappleMovement -= GrappleMovement;
             On_Player.HorizontalMovement -= HorizontalMovement;
+            On_Main.Update -= Update;
             On_Main.DrawInterface_30_Hotbar -= DrawHotbar;
         }
 
@@ -82,24 +85,37 @@ namespace SyntheticEvolution
 
             orig(self);
         }
-        
+
         private void HorizontalMovement(On_Player.orig_HorizontalMovement orig, Player self)
         {
             var synth = self.GetSynth();
-            
+
             if (synth != null)
             {
                 if (!synth.PreHorizontalMovement()) return;
             }
-            
+
             orig(self);
-            
+
             if (synth != null)
             {
                 synth.PostHorizontalMovement();
             }
         }
-        
+
+        private void Update(On_Main.orig_Update orig, Main self, GameTime deltaTime)
+        {
+            for (int i = 0; i < Main.maxPlayers; i++)
+            {
+                if (Main.player[i].active && Main.player[i].GetSynth() is { } synth)
+                {
+                    synth.Update(deltaTime);
+                }
+            }
+
+            orig(self, deltaTime);
+        }
+
         private void DrawHotbar(On_Main.orig_DrawInterface_30_Hotbar orig, Main self)
         {
             Main.spriteBatch.DrawString(FontAssets.MouseText.Value, Main.LocalPlayer.velocity.X.ToString(), new Vector2(700, 100), Color.White);
@@ -108,10 +124,10 @@ namespace SyntheticEvolution
             if (Main.LocalPlayer.GetSynth() is { HaveCustomHotbar: true } synth)
             {
                 synth.DrawHotbar();
-                
+
                 return;
             }
-            
+
             orig(self);
         }
     }

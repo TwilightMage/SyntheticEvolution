@@ -1,9 +1,11 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
+using ReLogic.Graphics;
 using SyntheticEvolution.Common.ChainPhysics;
 using SyntheticEvolution.Content.Projectiles;
 using System;
+using System.Collections.Generic;
 using Terraria;
 using Terraria.Audio;
 using Terraria.GameContent;
@@ -17,6 +19,13 @@ namespace SyntheticEvolution.Common.SynthModels;
 [SynthModel(Key = "storm")]
 public class Storm : SynthModel
 {
+    private class DrawSpeedState
+    {
+        public float Age;
+        public float Angle;
+        public Vector2 Offset;
+    }
+
     public static readonly float LegsArmorScale = 0.2f;
     public static readonly float BladesArmorScale = 0.2f;
     public static readonly float HeadArmorScale = 0.1f;
@@ -30,9 +39,11 @@ public class Storm : SynthModel
     public PartSlot RightArmSlot => Equipment.GetSlot(3);
     public PartSlot LegsSlot => Equipment.GetSlot(4);
     public PartSlot GrappleSlot => Equipment.GetSlot(5);
-    
+
     private static Asset<Texture2D> _hotbarSlotTexture;
     private static Asset<Texture2D> _hotbarSlotTextureBorder;
+
+    private static Asset<Texture2D> _speedEffectTexture;
 
     public override string Name => "Storm";
     public override bool CanUseConventionalItems => false;
@@ -45,6 +56,8 @@ public class Storm : SynthModel
     private float _grappleLengthMin = 16 * 1;
     private Chain _grappleChain = null;
 
+    private List<DrawSpeedState> _drawSpeedStates = new List<DrawSpeedState>();
+
     private bool _wasControlUp;
     private bool _wasControlDown;
 
@@ -54,25 +67,32 @@ public class Storm : SynthModel
     {
         return new[]
         {
-            new PartSlot("head", PartSlot.SocketTypeEnum.Head, GetType(), new Vector2(0, 0)), 
-            new PartSlot("chest", PartSlot.SocketTypeEnum.Chest, GetType(), new Vector2(0, 50)), 
-            new PartSlot("left_arm", PartSlot.SocketTypeEnum.Arm, GetType(), new Vector2(0, 100)), 
-            new PartSlot("right_arm", PartSlot.SocketTypeEnum.Arm, GetType(), new Vector2(0, 150)), 
+            new PartSlot("head", PartSlot.SocketTypeEnum.Head, GetType(), new Vector2(0, 0)),
+            new PartSlot("chest", PartSlot.SocketTypeEnum.Chest, GetType(), new Vector2(0, 50)),
+            new PartSlot("left_arm", PartSlot.SocketTypeEnum.Arm, GetType(), new Vector2(0, 100)),
+            new PartSlot("right_arm", PartSlot.SocketTypeEnum.Arm, GetType(), new Vector2(0, 150)),
             new PartSlot("legs", PartSlot.SocketTypeEnum.Legs, GetType(), new Vector2(0, 200)),
             new PartSlot("hook", PartSlot.SocketTypeEnum.Module, null, new Vector2(75, 0), moduleFitCheck: (item) => ContentSamples.ProjectilesByType[item.shoot].aiStyle == ProjAIStyleID.Hook)
         };
     }
 
-    private Vector2 _grappleNormal;
-    private Vector2 _swingNormal;
-    
-    public override void Update()
+    private Vector2? _grappleNormal;
+    private Vector2? _clockwiseNormal;
+    private Vector2? _swingBoostNormal;
+    private bool? _movingClockWise;
+    private float? _dot;
+
+    public override void FixedUpdate()
     {
-        base.Update();
+        base.FixedUpdate();
+
+        _grappleNormal = null;
+        _clockwiseNormal = null;
+        _swingBoostNormal = null;
+        _movingClockWise = null;
+        _dot = null;
 
         var player = OwningPlayer;
-
-        //player.velocity = Vector2.Zero;
 
         _onGround = Collision.SolidTiles(player.BottomLeft + new Vector2(1, 1), player.width - 2, 1, true);
 
@@ -92,24 +112,66 @@ public class Storm : SynthModel
 
                 _grappleChain.IncreaseFromStart(reelOut);
             }
-            
+
             Vector2 grapplePoint = Main.projectile[_grappleProjId].Center;
             float currentGrappleDistance = player.Center.Distance(grapplePoint);
-            float desiredGrappleDistance = _grappleChain.CalculateLength() * 1.1f;
+            float desiredGrappleDistance = _grappleChain.CalculateLength() * 1.1f; // TODO: make separate property for that, not rely on chain length
 
             if (desiredGrappleDistance < currentGrappleDistance)
             {
-                Vector2 grappleNormal = _grappleNormal = player.Center.DirectionTo(grapplePoint);
+                Vector2 grappleNormal = player.Center.DirectionTo(grapplePoint);
                 float grappleStrength = (currentGrappleDistance - desiredGrappleDistance) / currentGrappleDistance * 4;
                 Vector2 grappleForce = grappleNormal * grappleStrength;
 
+                _grappleNormal = grappleNormal;
+
                 player.velocity += grappleForce;
 
-                Vector2 swingNormal = _swingNormal = new Vector2(grappleNormal.Y, -grappleNormal.X);
+                if (player.controlLeft || player.controlRight)
+                {
+                    Vector2 velocityNormal = player.velocity.Normalized();
+                    Vector2 clockwiseNormal = new Vector2(grappleNormal.Y, -grappleNormal.X);
+
+                    _clockwiseNormal = clockwiseNormal;
+
+                    // dot == 1  - same
+                    // dot == 0  - perpendicular
+                    // dot == -1 - opposite
+                    bool movingClockWise = Vector2.Dot(velocityNormal, clockwiseNormal) > 0;
+                    _movingClockWise = movingClockWise;
+                    _dot = Vector2.Dot(velocityNormal, clockwiseNormal);
+
+                    bool shouldControlLeft = movingClockWise;
+
+                    float swingStrength = 0;
+                    if (player.controlLeft) swingStrength = shouldControlLeft ? 0.2f : 0.05f;
+                    else if (player.controlRight) swingStrength = !shouldControlLeft ? 0.2f : 0.05f;
+
+                    player.velocity += (movingClockWise ? clockwiseNormal : (clockwiseNormal * -1)) * swingStrength;
+
+                    _swingBoostNormal = (movingClockWise ? clockwiseNormal : (clockwiseNormal * -1));
+
+                    if (Main.rand.NextFloat() < 0.05f) _drawSpeedStates.Add(new DrawSpeedState
+                    {
+                        Angle = Main.rand.NextFloat(-0.3f, 0.3f),
+                        Offset = new Vector2(Main.rand.NextFloat(-3, 3), Main.rand.NextFloat(-3, 3))
+                    });
+                }
             }
-            
+
             _wasControlUp = player.controlUp;
             _wasControlDown = player.controlDown;
+        }
+    }
+
+    public override void Update(GameTime deltaTime)
+    {
+        base.Update(deltaTime);
+
+        for (int i = 0; i < _drawSpeedStates.Count; i++)
+        {
+            _drawSpeedStates[i].Age = (float)(_drawSpeedStates[i].Age + deltaTime.ElapsedGameTime.TotalSeconds);
+            if (_drawSpeedStates[i].Age >= 2) _drawSpeedStates.RemoveAt(i--);
         }
     }
 
@@ -165,6 +227,7 @@ public class Storm : SynthModel
 
         var player = OwningPlayer;
 
+        // Check if player have any vanilla hooks present, then kill them and spawn ours on their place
         if (player.grappling[0] < 0) return;
 
         var oldHookProj = Main.projectile[player.grappling[0]];
@@ -188,7 +251,7 @@ public class Storm : SynthModel
     private void SpawnGrapple(Projectile vanillaGrapple)
     {
         var player = OwningPlayer;
-        
+
         (Texture2D chainTexture, Texture2D chainGlowTexture, Color chainGlowColor) = StormHook.GetChainTexture(vanillaGrapple.type);
         var hookTexture = TextureAssets.Projectile[vanillaGrapple.type].Value;
 
@@ -200,9 +263,6 @@ public class Storm : SynthModel
         {
             float receiveX = 0f;
             float receiveY = 0f;
-
-            //player.velocity.X += force.X * receiveX * 0.25f;
-            //player.velocity.Y += force.Y * receiveY * 0.25f;
 
             return (receiveX, receiveY);
         };
@@ -217,8 +277,9 @@ public class Storm : SynthModel
 
     public override bool PreHorizontalMovement()
     {
-        if (!_onGround && _grappleChain != null)
+        if (!_onGround)
         {
+            // That makes vanilla code don't slow down character
             OwningPlayer.runSlowdown = 0;
         }
 
@@ -227,8 +288,9 @@ public class Storm : SynthModel
 
     public override void PostHorizontalMovement()
     {
-        if (!_onGround && _grappleChain != null)
+        if (!_onGround)
         {
+            // We perform our (proper) drag implementation
             OwningPlayer.velocity *= 0.99f;
         }
     }
@@ -242,6 +304,8 @@ public class Storm : SynthModel
         _hotbarSlotTexture ??= ModContent.Request<Texture2D>("SyntheticEvolution/Assets/Textures/UI/StormHotbarSlot", AssetRequestMode.ImmediateLoad);
         _hotbarSlotTextureBorder ??= ModContent.Request<Texture2D>("SyntheticEvolution/Assets/Textures/UI/StormHotbarSlotBorder", AssetRequestMode.ImmediateLoad);
 
+        _speedEffectTexture ??= ModContent.Request<Texture2D>("SyntheticEvolution/Assets/Textures/Effects/Speed", AssetRequestMode.ImmediateLoad);
+
         for (int i = 0; i < 4; i++)
         {
             int slotSize = 42;
@@ -250,13 +314,21 @@ public class Storm : SynthModel
             if (i == player.selectedItem) Terraria.Utils.DrawSplicedPanel(Main.spriteBatch, _hotbarSlotTextureBorder.Value, rect.X, rect.Y, rect.Width, rect.Height, 14, 14, 14, 14, Main.OurFavoriteColor);
             ItemSlot.DrawItemIcon(player.inventory[i], 0, Main.spriteBatch, rect.Center(), 1f, 28f, i == player.selectedItem ? Color.White : (Color.White * 0.75f));
         }
-        
-        PlayerInput.SetZoom_Unscaled();
-        
-        Terraria.Utils.DrawLine(Main.spriteBatch, player.Center, player.Center + player.velocity * 32, Color.Red, Color.White, 2);
-        Terraria.Utils.DrawLine(Main.spriteBatch, player.Center, player.Center + _grappleNormal * 32, Color.Blue, Color.White, 2);
-        Terraria.Utils.DrawLine(Main.spriteBatch, player.Center, player.Center + _swingNormal * 32, Color.Orange, Color.White, 2);
-        
-        PlayerInput.SetZoom_UI();
+
+        Vector2 center = Main.screenPosition + Main.ScreenSize.ToVector2() / 2;
+
+        Terraria.Utils.DrawLine(Main.spriteBatch, center, center + player.velocity * 32, Color.Red, Color.White, 2);
+        if (_grappleNormal.HasValue) Terraria.Utils.DrawLine(Main.spriteBatch, center, center + _grappleNormal.Value * 32, Color.Blue, Color.White, 2);
+        //if (_clockwiseNormal.HasValue) Terraria.Utils.DrawLine(Main.spriteBatch, center, center + _clockwiseNormal.Value * 32, Color.Orange, Color.White, 2);
+        if (_swingBoostNormal.HasValue) Terraria.Utils.DrawLine(Main.spriteBatch, center, center + _swingBoostNormal.Value * 32, Color.Magenta, Color.White, 2);
+        if (_movingClockWise.HasValue) Main.spriteBatch.DrawString(FontAssets.MouseText.Value, _movingClockWise.Value ? "left" : "right", new Vector2(700, 200), Color.Magenta);
+        if (_dot.HasValue) Main.spriteBatch.DrawString(FontAssets.MouseText.Value, _dot.Value.ToString(), new Vector2(700, 230), Color.Magenta);
+
+        // TODO: that should not be in UI code
+        Vector2 velocityNormal = player.velocity.Normalized();
+        foreach (var drawSpeedState in _drawSpeedStates)
+        {
+            Main.spriteBatch.Draw(_speedEffectTexture.Value, Main.ScreenSize.ToVector2() / 2 + drawSpeedState.Offset, null, Color.White * 0.1f * (1 - MathF.Pow(drawSpeedState.Age / 2, 5)), MathF.Atan2(velocityNormal.Y, velocityNormal.X) + drawSpeedState.Angle, new Vector2(13, 27), Vector2.One, SpriteEffects.None, 0);
+        }
     }
 }
