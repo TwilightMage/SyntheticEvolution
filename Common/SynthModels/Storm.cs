@@ -7,6 +7,7 @@ using System;
 using Terraria;
 using Terraria.Audio;
 using Terraria.GameContent;
+using Terraria.GameInput;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.UI;
@@ -37,14 +38,17 @@ public class Storm : SynthModel
     public override bool CanUseConventionalItems => false;
     public override bool HaveCustomHotbar => true;
 
+    public override bool CanWalkInAir => false;
+
     private int _grappleProjId = -1;
     private float _grappleLengthMax = 16 * 50;
-    private float _grappleLengthMin = 16 * 4;
+    private float _grappleLengthMin = 16 * 1;
     private Chain _grappleChain = null;
-    private float _grappleReelSpeed = 0f;
 
     private bool _wasControlUp;
     private bool _wasControlDown;
+
+    private bool _onGround;
 
     public override PartSlot[] CreateEquipmentSlots()
     {
@@ -59,6 +63,9 @@ public class Storm : SynthModel
         };
     }
 
+    private Vector2 _grappleNormal;
+    private Vector2 _swingNormal;
+    
     public override void Update()
     {
         base.Update();
@@ -67,54 +74,42 @@ public class Storm : SynthModel
 
         //player.velocity = Vector2.Zero;
 
+        _onGround = Collision.SolidTiles(player.BottomLeft + new Vector2(1, 1), player.width - 2, 1, true);
+
         if (_grappleChain != null)
         {
-            if (player.controlUp && !_wasControlUp && !player.controlDown)
+            if (player.controlUp && !player.controlDown)
             {
-                // >0 = reel in
-                if (_grappleReelSpeed == 0) _grappleReelSpeed = 3;
-                else if (_grappleReelSpeed > 0) _grappleReelSpeed = 6;
-                else _grappleReelSpeed = 0;
-            }
-            else if (player.controlDown && !_wasControlDown && !player.controlUp)
-            {
-                // <0 = reel out
-                if (_grappleReelSpeed == 0) _grappleReelSpeed = -3;
-                else if (_grappleReelSpeed < 0) _grappleReelSpeed = -6;
-                else _grappleReelSpeed = 0;
-            }
+                float currentLen = _grappleChain.CalculateLength() * 1.1f;
+                float reelIn = MathF.Min(6, currentLen - _grappleLengthMin);
 
+                _grappleChain.DecreaseFromStart(reelIn);
+            }
+            else if (player.controlDown && !player.controlUp)
+            {
+                float currentLen = _grappleChain.CalculateLength() * 1.1f;
+                float reelOut = MathF.Min(6, _grappleLengthMax - currentLen);
+
+                _grappleChain.IncreaseFromStart(reelOut);
+            }
+            
+            Vector2 grapplePoint = Main.projectile[_grappleProjId].Center;
+            float currentGrappleDistance = player.Center.Distance(grapplePoint);
+            float desiredGrappleDistance = _grappleChain.CalculateLength() * 1.1f;
+
+            if (desiredGrappleDistance < currentGrappleDistance)
+            {
+                Vector2 grappleNormal = _grappleNormal = player.Center.DirectionTo(grapplePoint);
+                float grappleStrength = (currentGrappleDistance - desiredGrappleDistance) / currentGrappleDistance * 4;
+                Vector2 grappleForce = grappleNormal * grappleStrength;
+
+                player.velocity += grappleForce;
+
+                Vector2 swingNormal = _swingNormal = new Vector2(grappleNormal.Y, -grappleNormal.X);
+            }
+            
             _wasControlUp = player.controlUp;
             _wasControlDown = player.controlDown;
-
-            if (_grappleReelSpeed > 0)
-            {
-                float currentLen = _grappleChain.CalculateLength();
-                float reelIn = MathF.Min(_grappleReelSpeed, currentLen - _grappleLengthMin);
-
-                if (reelIn < 0.01f)
-                {
-                    _grappleReelSpeed = 0;
-                }
-                else
-                {
-                    _grappleChain.DecreaseFromStart(reelIn);
-                }
-            }
-            else if (_grappleReelSpeed < 0)
-            {
-                float currentLen = _grappleChain.CalculateLength();
-                float reelOut = MathF.Max(_grappleReelSpeed, currentLen - _grappleLengthMax);
-
-                if (reelOut > -0.01f)
-                {
-                    _grappleReelSpeed = 0;
-                }
-                else
-                {
-                    _grappleChain.IncreaseFromStart(-reelOut);
-                }
-            }
         }
     }
 
@@ -188,7 +183,6 @@ public class Storm : SynthModel
         _grappleProjId = -1;
         _grappleChain.HoldBack = null;
         _grappleChain = null;
-        _grappleReelSpeed = 0;
     }
 
     private void SpawnGrapple(Projectile vanillaGrapple)
@@ -199,24 +193,16 @@ public class Storm : SynthModel
         var hookTexture = TextureAssets.Projectile[vanillaGrapple.type].Value;
 
         _grappleChain = Chain.Create(player.Center, vanillaGrapple.Center, chainTexture.Height / StormHook.TextureSizeToSplitAmount(chainTexture.Size().ToPoint()));
+        _grappleChain.ScaleSegments(1 / 1.1f);
         _grappleChain.LastPoint.Fixed = true;
         _grappleChain.HoldPosition = player.Center;
         _grappleChain.HoldBack = (force) =>
         {
-            float receiveX = 0.5f;
-            float receiveY = 0.5f;
+            float receiveX = 0f;
+            float receiveY = 0f;
 
-            bool onGround = Collision.SolidTiles(player.BottomLeft + new Vector2(0, 1), player.width, 1, true);
-            
-            if (onGround)
-            {
-                if (force.Y > -1) receiveY = 0;
-            
-                receiveX = MathHelper.Clamp(force.X * 0.8f, 0, 1);
-            }
-
-            player.velocity.X += force.X * receiveX * 0.5f;
-            player.velocity.Y += force.Y * receiveY * 0.5f;
+            //player.velocity.X += force.X * receiveX * 0.25f;
+            //player.velocity.Y += force.Y * receiveY * 0.25f;
 
             return (receiveX, receiveY);
         };
@@ -227,6 +213,24 @@ public class Storm : SynthModel
 
         newHookProj.Projectile.rotation = vanillaGrapple.rotation;
         newHookProj.Setup(_grappleChain, hookTexture, chainTexture, chainGlowTexture, chainGlowColor, vanillaGrapple.Size.ToPoint());
+    }
+
+    public override bool PreHorizontalMovement()
+    {
+        if (!_onGround && _grappleChain != null)
+        {
+            OwningPlayer.runSlowdown = 0;
+        }
+
+        return true;
+    }
+
+    public override void PostHorizontalMovement()
+    {
+        if (!_onGround && _grappleChain != null)
+        {
+            OwningPlayer.velocity *= 0.99f;
+        }
     }
 
     public override void DrawHotbar()
@@ -241,10 +245,18 @@ public class Storm : SynthModel
         for (int i = 0; i < 4; i++)
         {
             int slotSize = 42;
-            Rectangle rect = new Rectangle(20 + (slotSize + 10) * i, 20, slotSize, slotSize);
-            Terraria.Utils.DrawSplicedPanel(Main.spriteBatch, _hotbarSlotTexture.Value, rect.X, rect.Y, rect.Width, rect.Height, 12, 12, 12, 12, Color.White * 0.25f);
-            if (i == player.selectedItem) Terraria.Utils.DrawSplicedPanel(Main.spriteBatch, _hotbarSlotTextureBorder.Value, rect.X, rect.Y, rect.Width, rect.Height, 12, 12, 12, 12, Main.OurFavoriteColor);
-            ItemSlot.DrawItemIcon(player.inventory[i], 0, Main.spriteBatch, rect.Center(), 1f, 28f, Color.White);
+            Rectangle rect = new Rectangle(20 + (slotSize + 3) * i, 20, slotSize, slotSize);
+            Terraria.Utils.DrawSplicedPanel(Main.spriteBatch, _hotbarSlotTexture.Value, rect.X, rect.Y, rect.Width, rect.Height, 14, 14, 14, 14, Color.White * 0.25f);
+            if (i == player.selectedItem) Terraria.Utils.DrawSplicedPanel(Main.spriteBatch, _hotbarSlotTextureBorder.Value, rect.X, rect.Y, rect.Width, rect.Height, 14, 14, 14, 14, Main.OurFavoriteColor);
+            ItemSlot.DrawItemIcon(player.inventory[i], 0, Main.spriteBatch, rect.Center(), 1f, 28f, i == player.selectedItem ? Color.White : (Color.White * 0.75f));
         }
+        
+        PlayerInput.SetZoom_Unscaled();
+        
+        Terraria.Utils.DrawLine(Main.spriteBatch, player.Center, player.Center + player.velocity * 32, Color.Red, Color.White, 2);
+        Terraria.Utils.DrawLine(Main.spriteBatch, player.Center, player.Center + _grappleNormal * 32, Color.Blue, Color.White, 2);
+        Terraria.Utils.DrawLine(Main.spriteBatch, player.Center, player.Center + _swingNormal * 32, Color.Orange, Color.White, 2);
+        
+        PlayerInput.SetZoom_UI();
     }
 }

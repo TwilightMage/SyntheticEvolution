@@ -42,10 +42,22 @@ public class Chain
 
         for (int i = 0; i < chain._segmentLengths.Length; i++)
         {
-            chain._segmentLengths[i] = (chain._points[i + 1].Position - chain._points[i].Position).Length();
+            chain._segmentLengths[i] = segmentLength;
         }
 
+        chain._segmentLengths[^1] = (chain._points[^1].Position - chain._points[^2].Position).Length();
+
         return chain;
+    }
+
+    public void ScaleSegments(float aspect)
+    {
+        for (int i = 0; i < NumSegments; i++)
+        {
+            _segmentLengths[i] *= aspect;
+        }
+
+        _normalSegmentLength *= aspect;
     }
 
     public void DecreaseFromStart(float amount)

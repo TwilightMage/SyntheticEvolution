@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using SyntheticEvolution.Common;
+using SyntheticEvolution.Common.SynthModels;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria;
@@ -70,7 +71,16 @@ namespace SyntheticEvolution.Content.Mounts
 
         public override void UpdateEffects(Player player)
         {
-
+            if (Collision.SolidTiles(player.BottomLeft + new Vector2(1, 1), player.width - 2, 0, true) || player.GetSynth().CanWalkInAir)
+            {
+                MountData.runSpeed = 11f;
+                MountData.acceleration = 0.19f;
+            }
+            else
+            {
+                MountData.runSpeed = 0f;
+                MountData.acceleration = 0f;
+            }
         }
 
         public override void SetMount(Player player, ref bool skipDust)

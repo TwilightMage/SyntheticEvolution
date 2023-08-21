@@ -16,6 +16,8 @@ public abstract class SynthModel
     public abstract string Name { get; }
     public virtual bool CanUseConventionalItems => true;
     public virtual bool HaveCustomHotbar => false;
+    
+    public virtual bool CanWalkInAir => true;
 
     public readonly SynthEquipment Equipment = new SynthEquipment();
 
@@ -67,7 +69,12 @@ public abstract class SynthModel
     {
     }
 
-    public virtual void HorizontalMovement()
+    public virtual bool PreHorizontalMovement()
+    {
+        return true;
+    }
+    
+    public virtual void PostHorizontalMovement()
     {
     }
 

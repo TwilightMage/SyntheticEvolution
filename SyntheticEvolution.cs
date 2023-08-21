@@ -21,7 +21,7 @@ namespace SyntheticEvolution
             On_Player.QuickGrapple += QuickGrapple;
             On_Player.ToggleInv += ToggleInv;
             On_Player.GrappleMovement += GrappleMovement;
-            //On_Player.HorizontalMovement += HorizontalMovement;
+            On_Player.HorizontalMovement += HorizontalMovement;
             On_Main.DrawInterface_30_Hotbar += DrawHotbar;
         }
 
@@ -33,13 +33,13 @@ namespace SyntheticEvolution
             On_Player.QuickGrapple -= QuickGrapple;
             On_Player.ToggleInv -= ToggleInv;
             On_Player.GrappleMovement -= GrappleMovement;
-            //On_Player.HorizontalMovement -= HorizontalMovement;
+            On_Player.HorizontalMovement -= HorizontalMovement;
             On_Main.DrawInterface_30_Hotbar -= DrawHotbar;
         }
 
         private void QuickMount(On_Player.orig_QuickMount orig, Player self)
         {
-            if (SynthPlayer.LocalSynthModel != null)
+            if (self.GetSynth() != null)
             {
                 return;
             }
@@ -83,26 +83,31 @@ namespace SyntheticEvolution
             orig(self);
         }
         
+        private void HorizontalMovement(On_Player.orig_HorizontalMovement orig, Player self)
+        {
+            var synth = self.GetSynth();
+            
+            if (synth != null)
+            {
+                if (!synth.PreHorizontalMovement()) return;
+            }
+            
+            orig(self);
+            
+            if (synth != null)
+            {
+                synth.PostHorizontalMovement();
+            }
+        }
+        
         private void DrawHotbar(On_Main.orig_DrawInterface_30_Hotbar orig, Main self)
         {
             Main.spriteBatch.DrawString(FontAssets.MouseText.Value, Main.LocalPlayer.velocity.X.ToString(), new Vector2(700, 100), Color.White);
             Main.spriteBatch.DrawString(FontAssets.MouseText.Value, Main.LocalPlayer.velocity.Y.ToString(), new Vector2(700, 130), Color.White);
 
-            if (SynthPlayer.LocalSynthModel is { HaveCustomHotbar: true } synth)
+            if (Main.LocalPlayer.GetSynth() is { HaveCustomHotbar: true } synth)
             {
                 synth.DrawHotbar();
-                
-                return;
-            }
-            
-            orig(self);
-        }
-        
-        private void HorizontalMovement(On_Player.orig_HorizontalMovement orig, Player self)
-        {
-            if (SynthPlayer.LocalSynthModel != null)
-            {
-                SynthPlayer.LocalSynthModel.HorizontalMovement();
                 
                 return;
             }

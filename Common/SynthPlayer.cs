@@ -11,8 +11,6 @@ namespace SyntheticEvolution.Common;
 
 public class SynthPlayer : ModPlayer
 {
-    public static SynthModel LocalSynthModel;
-
     private static Dictionary<string, Type> _synthTypes = new Dictionary<string, Type>();
 
     public SynthModel SynthModel => _synthModel;
@@ -60,11 +58,6 @@ public class SynthPlayer : ModPlayer
             _synthModel.Equipment.SetupFrom(_synthModel);
             _synthModel.playerId = Player.whoAmI;
 
-            if (Player.whoAmI == Main.myPlayer)
-            {
-                LocalSynthModel = _synthModel;
-            }
-
             Player.mount.SetMount(ModContent.MountType<SynthMount>(), Player);
 
             return true;
@@ -96,11 +89,6 @@ public class SynthPlayer : ModPlayer
             _synthModel.Equipment.SetupFrom(_synthModel);
             _synthModel.playerId = Player.whoAmI;
 
-            if (Player.whoAmI == Main.myPlayer)
-            {
-                LocalSynthModel = _synthModel;
-            }
-
             Player.mount.SetMount(ModContent.MountType<SynthMount>(), Player);
 
             return true;
@@ -113,11 +101,6 @@ public class SynthPlayer : ModPlayer
     {
         _synthModel.playerId = -1;
         _synthModel = null;
-
-        if (Player.whoAmI == Main.myPlayer)
-        {
-            LocalSynthModel = null;
-        }
 
         if (Player.mount._active) Player.mount.Dismount(Player);
     }
@@ -152,7 +135,7 @@ public class SynthPlayer : ModPlayer
         }
     }
 
-    public override void PostUpdate()
+    public override void PreUpdate()
     {
         SynthModel?.Update();
     }
