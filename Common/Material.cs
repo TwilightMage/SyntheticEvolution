@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
 using Terraria.ID;
+using Terraria.Localization;
 
 namespace SyntheticEvolution.Common;
 
@@ -24,6 +25,6 @@ public static class MaterialID
         BladeDamageModifier = 8,
         MaterialType = ItemID.CopperBar,
         Color = Color.Chocolate,
-        FeatureDescription = "[c/CD8647:Copper] is a [c/7F7F7F:light-weight] material, but [c/7F7F7F:not] very [c/7F7F7F:tough]."
+        FeatureDescription = Language.GetTextValue("Mods.SyntheticEvolution.MaterialDescriptions.Copper")
     };
 }

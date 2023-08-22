@@ -56,5 +56,13 @@ Mods: {
 			StormHook.DisplayName: Storm Hook
 			StormMeleeAttack.DisplayName: Storm Melee Attack
 		}
+
+		PartDescriptions.Legs:
+			'''
+			[c/00E2AD:Storm] blade legs are good for dealing [c/7F7F7F:damage] to
+			enemies on a [c/7F7F7F:high speed] when [c/7F7F7F:airborne].
+			Although, they're [c/7F7F7F:not] very good for [c/7F7F7F:running] on a [c/7F7F7F:ground].
+			'''
+		MaterialDescriptions.Copper: "[c/CD8647:Copper] is a [c/7F7F7F:light-weight] material, but [c/7F7F7F:not] very [c/7F7F7F:tough]."
 	}
 }

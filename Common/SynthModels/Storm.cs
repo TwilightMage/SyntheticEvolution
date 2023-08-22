@@ -1,7 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
-using ReLogic.Graphics;
 using SyntheticEvolution.Common.ChainPhysics;
 using SyntheticEvolution.Content.Projectiles;
 using System;
@@ -9,8 +8,8 @@ using System.Collections.Generic;
 using Terraria;
 using Terraria.Audio;
 using Terraria.GameContent;
-using Terraria.GameInput;
 using Terraria.ID;
+using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.UI;
 
@@ -31,7 +30,7 @@ public class Storm : SynthModel
     public static readonly float HeadArmorScale = 0.1f;
     public static readonly float ChestArmorScale = 0.3f;
 
-    public static readonly string LegsFeatureDescription = "[c/00E2AD:Storm] blade legs are good for dealing [c/7F7F7F:damage] to\nenemies on a [c/7F7F7F:high speed] [c/7F7F7F:mid-air].\nAlthough, they're [c/7F7F7F:not] very good for [c/7F7F7F:running] on a [c/7F7F7F:ground].";
+    public static readonly string LegsFeatureDescription = Language.GetTextValue("Mods.SyntheticEvolution.PartDescriptions.Legs");
 
     public PartSlot HeadSlot => Equipment.GetSlot(0);
     public PartSlot ChestSlot => Equipment.GetSlot(1);
@@ -40,10 +39,11 @@ public class Storm : SynthModel
     public PartSlot LegsSlot => Equipment.GetSlot(4);
     public PartSlot GrappleSlot => Equipment.GetSlot(5);
 
-    public StormMeleeAttack.AnimationType LastMeleeAnimation { get; private set; }
+    public StormMeleeAttack.AttackTypeEnum LastMeleeAttackType { get; private set; }
     public int MeleeComboCounter => _meleeComboCounter;
     public int[] MeleeAnimationData => _meleeAnimationData;
     public uint LastMeleeAttackTime { get; private set; }
+    public int CurrentWeaponUseTime { get; private set; }
 
     private static Asset<Texture2D> _hotbarSlotTexture;
     private static Asset<Texture2D> _hotbarSlotTextureBorder;
@@ -61,13 +61,13 @@ public class Storm : SynthModel
     private float _grappleLengthMin = 16 * 1;
     private Chain _grappleChain = null;
 
+    private int _lastSelectedItem = -1;
+    private StormMeleeAttack _weapon;
+
     private int _meleeComboCounter;
-    private int[] _meleeAnimationData = new[] { 0, 0, 0 };
+    private int[] _meleeAnimationData = { 0, 0, 0 };
 
     private List<DrawSpeedState> _drawSpeedStates = new List<DrawSpeedState>();
-
-    private bool _wasControlUp;
-    private bool _wasControlDown;
 
     private bool _onGround;
 
@@ -166,9 +166,24 @@ public class Storm : SynthModel
                     });
                 }
             }
+        }
 
-            _wasControlUp = player.controlUp;
-            _wasControlDown = player.controlDown;
+        if (player.selectedItem != _lastSelectedItem)
+        {
+            if (_weapon?.Projectile.active == true)
+            {
+                _weapon.Projectile.Kill();
+                _weapon = null;
+            }
+
+            Item item = player.inventory[player.selectedItem];
+            var projectile = Main.projectile[Projectile.NewProjectile(player.GetSource_ItemUse(item), player.Center, Vector2.Zero, ModContent.ProjectileType<StormMeleeAttack>(), item.damage, item.knockBack, player.whoAmI)];
+            _weapon = (StormMeleeAttack)projectile.ModProjectile;
+            _weapon.SetupItem(this, item);
+
+            LastMeleeAttackType = _weapon.AttackType;
+
+            _lastSelectedItem = player.selectedItem;
         }
     }
 
@@ -359,24 +374,29 @@ public class Storm : SynthModel
 
         if (item.CountsAsClass(DamageClass.Melee) && item.pick == 0 && item.axe == 0 && item.hammer == 0)
         {
-            bool isGravediggerShovel = item.type == 4711;
-            if (item.pick > 0 || item.axe > 0 || item.hammer > 0 || isGravediggerShovel)
-                player.toolTime = 1;
-            //player.StartChanneling(item);
-            player.attackCD = 0;
-            player.ResetMeleeHitCooldowns();
-
-            //player.ApplyItemAnimation(item);
-            var projectile = Main.projectile[Projectile.NewProjectile(player.GetSource_ItemUse(item), player.Center, Vector2.Zero, ModContent.ProjectileType<StormMeleeAttack>(), item.damage, item.knockBack, player.whoAmI)];
-            var stormMeleeAttack = (StormMeleeAttack)projectile.ModProjectile;
-            stormMeleeAttack.AnimateSwingAttack(this, item, (Main.MouseWorld - player.Center).Normalized(), ref _meleeComboCounter, ref _meleeAnimationData);
-
-            LastMeleeAnimation = stormMeleeAttack.Animation;
-            LastMeleeAttackTime = Main.GameUpdateCount;
-
-            if (item.UseSound.HasValue && !ItemID.Sets.SkipsInitialUseSound[item.type])
+            if ((Main.GameUpdateCount - LastMeleeAttackTime) >= CurrentWeaponUseTime)
             {
-                SoundEngine.PlaySound(item.UseSound, player.Center);
+                bool isGravediggerShovel = item.type == 4711;
+                if (item.pick > 0 || item.axe > 0 || item.hammer > 0 || isGravediggerShovel)
+                    player.toolTime = 1;
+                player.StartChanneling(item);
+                player.attackCD = 0;
+                player.ResetMeleeHitCooldowns();
+
+                //player.ApplyItemAnimation(item);
+                //player.SetItemAnimation(CombinedHooks.TotalAnimationTime(item.useAnimation, player, item));
+                player.reuseDelay = (int)(item.reuseDelay / CombinedHooks.TotalUseSpeedMultiplier(player, item));
+                //player.ItemUsesThisAnimation = 0;
+
+                _weapon.DoAttack((Main.MouseWorld - player.Center).Normalized(), ref _meleeComboCounter, ref _meleeAnimationData);
+                CurrentWeaponUseTime = _weapon.AttackFrameCount;
+
+                LastMeleeAttackTime = Main.GameUpdateCount;
+
+                if (item.UseSound.HasValue && !ItemID.Sets.SkipsInitialUseSound[item.type])
+                {
+                    SoundEngine.PlaySound(item.UseSound, player.Center);
+                }
             }
 
             return true;
