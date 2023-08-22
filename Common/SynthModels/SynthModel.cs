@@ -86,4 +86,20 @@ public abstract class SynthModel
     public virtual void DrawHotbar()
     {
     }
+
+    // If returns false then default usage will be performed
+    public virtual bool StartUseItem(Item item)
+    {
+        return false;
+    }
+
+    public virtual bool OverrideItemUse(Item item)
+    {
+        return false;
+    }
+
+    public virtual bool OverrideItemAnimation(Item item)
+    {
+        return false;
+    }
 }

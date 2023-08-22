@@ -40,6 +40,11 @@ public class Storm : SynthModel
     public PartSlot LegsSlot => Equipment.GetSlot(4);
     public PartSlot GrappleSlot => Equipment.GetSlot(5);
 
+    public StormMeleeAttack.AnimationType LastMeleeAnimation { get; private set; }
+    public int MeleeComboCounter => _meleeComboCounter;
+    public int[] MeleeAnimationData => _meleeAnimationData;
+    public uint LastMeleeAttackTime { get; private set; }
+
     private static Asset<Texture2D> _hotbarSlotTexture;
     private static Asset<Texture2D> _hotbarSlotTextureBorder;
 
@@ -55,6 +60,9 @@ public class Storm : SynthModel
     private float _grappleLengthMax = 16 * 50;
     private float _grappleLengthMin = 16 * 1;
     private Chain _grappleChain = null;
+
+    private int _meleeComboCounter;
+    private int[] _meleeAnimationData = new[] { 0, 0, 0 };
 
     private List<DrawSpeedState> _drawSpeedStates = new List<DrawSpeedState>();
 
@@ -181,7 +189,7 @@ public class Storm : SynthModel
 
         if (_grappleProjId >= 0)
         {
-            KillGrapple();
+            ReelBackGrapple();
             return;
         }
 
@@ -213,9 +221,12 @@ public class Storm : SynthModel
             else
                 actualShootSpeed = shootSpeed / distanceToMouse;
 
+            if (damage == 0) damage = 1;
+
             Vector2 Speed = vectorToMouse * actualShootSpeed;
             var projId = Projectile.NewProjectile(player.GetSource_ItemUse(item), startPosition, Speed, type, damage, knockBack, Main.myPlayer);
             var hook = Main.projectile[projId];
+            hook.friendly = true;
 
             _grappleLengthMax = 16 * 50;
         }
@@ -232,47 +243,57 @@ public class Storm : SynthModel
 
         var oldHookProj = Main.projectile[player.grappling[0]];
 
-        KillGrapple();
-        SpawnGrapple(oldHookProj);
+        ReelBackGrapple();
+        SpawnGrappleOnTile(oldHookProj.type, oldHookProj.Center);
 
         player.RemoveAllGrapplingHooks();
     }
 
-    private void KillGrapple()
+    public void ReelBackGrapple()
     {
         if (_grappleProjId < 0) return;
 
         ((StormHook)Main.projectile[_grappleProjId].ModProjectile).ReelBack();
         _grappleProjId = -1;
-        _grappleChain.HoldBack = null;
         _grappleChain = null;
     }
 
-    private void SpawnGrapple(Projectile vanillaGrapple)
+    public void SpawnGrappleOnTile(int hookType, Vector2 location)
     {
         var player = OwningPlayer;
 
-        (Texture2D chainTexture, Texture2D chainGlowTexture, Color chainGlowColor) = StormHook.GetChainTexture(vanillaGrapple.type);
-        var hookTexture = TextureAssets.Projectile[vanillaGrapple.type].Value;
+        (Texture2D chainTexture, Texture2D chainGlowTexture, Color chainGlowColor) = StormHook.GetChainTexture(hookType);
+        var hookTexture = TextureAssets.Projectile[hookType].Value;
 
-        _grappleChain = Chain.Create(player.Center, vanillaGrapple.Center, chainTexture.Height / StormHook.TextureSizeToSplitAmount(chainTexture.Size().ToPoint()));
+        _grappleChain = Chain.Create(player.Center, location, chainTexture.Height / StormHook.TextureSizeToSplitAmount(chainTexture.Size().ToPoint()));
         _grappleChain.ScaleSegments(1 / 1.1f);
         _grappleChain.LastPoint.Fixed = true;
-        _grappleChain.HoldPosition = player.Center;
-        _grappleChain.HoldBack = (force) =>
-        {
-            float receiveX = 0f;
-            float receiveY = 0f;
+        _grappleChain.HoldStart = player.Center;
 
-            return (receiveX, receiveY);
-        };
-
-        _grappleProjId = Projectile.NewProjectile(null, vanillaGrapple.Center, Vector2.Zero, ModContent.ProjectileType<StormHook>(), 0, 0, playerId);
+        _grappleProjId = Projectile.NewProjectile(null, location, Vector2.Zero, ModContent.ProjectileType<StormHook>(), 0, 0, playerId);
 
         var newHookProj = (StormHook)Main.projectile[_grappleProjId].ModProjectile;
 
-        newHookProj.Projectile.rotation = vanillaGrapple.rotation;
-        newHookProj.Setup(_grappleChain, hookTexture, chainTexture, chainGlowTexture, chainGlowColor, vanillaGrapple.Size.ToPoint());
+        newHookProj.Setup(_grappleChain, hookTexture, chainTexture, chainGlowTexture, chainGlowColor, hookTexture.Size().ToPoint());
+    }
+
+    public void SpawnGrappleOnEnemy(int hookType, NPC enemy, Vector2 locationOffset, float angleOffset)
+    {
+        var player = OwningPlayer;
+
+        (Texture2D chainTexture, Texture2D chainGlowTexture, Color chainGlowColor) = StormHook.GetChainTexture(hookType);
+        var hookTexture = TextureAssets.Projectile[hookType].Value;
+
+        _grappleChain = Chain.Create(player.Center, enemy.Center, chainTexture.Height / StormHook.TextureSizeToSplitAmount(chainTexture.Size().ToPoint()));
+        _grappleChain.ScaleSegments(1 / 1.1f);
+        _grappleChain.HoldStart = player.Center;
+
+        _grappleProjId = Projectile.NewProjectile(null, enemy.Center, Vector2.Zero, ModContent.ProjectileType<StormHook>(), 0, 0, playerId);
+
+        var newHookProj = (StormHook)Main.projectile[_grappleProjId].ModProjectile;
+
+        newHookProj.Setup(_grappleChain, hookTexture, chainTexture, chainGlowTexture, chainGlowColor, hookTexture.Size().ToPoint());
+        newHookProj.SetFollowEnemy(enemy, locationOffset, angleOffset);
     }
 
     public override bool PreHorizontalMovement()
@@ -317,12 +338,12 @@ public class Storm : SynthModel
 
         Vector2 center = Main.screenPosition + Main.ScreenSize.ToVector2() / 2;
 
-        Terraria.Utils.DrawLine(Main.spriteBatch, center, center + player.velocity * 32, Color.Red, Color.White, 2);
-        if (_grappleNormal.HasValue) Terraria.Utils.DrawLine(Main.spriteBatch, center, center + _grappleNormal.Value * 32, Color.Blue, Color.White, 2);
-        //if (_clockwiseNormal.HasValue) Terraria.Utils.DrawLine(Main.spriteBatch, center, center + _clockwiseNormal.Value * 32, Color.Orange, Color.White, 2);
-        if (_swingBoostNormal.HasValue) Terraria.Utils.DrawLine(Main.spriteBatch, center, center + _swingBoostNormal.Value * 32, Color.Magenta, Color.White, 2);
-        if (_movingClockWise.HasValue) Main.spriteBatch.DrawString(FontAssets.MouseText.Value, _movingClockWise.Value ? "left" : "right", new Vector2(700, 200), Color.Magenta);
-        if (_dot.HasValue) Main.spriteBatch.DrawString(FontAssets.MouseText.Value, _dot.Value.ToString(), new Vector2(700, 230), Color.Magenta);
+        //Terraria.Utils.DrawLine(Main.spriteBatch, center, center + player.velocity * 32, Color.Red, Color.White, 2);
+        //if (_grappleNormal.HasValue) Terraria.Utils.DrawLine(Main.spriteBatch, center, center + _grappleNormal.Value * 32, Color.Blue, Color.White, 2);
+        ////if (_clockwiseNormal.HasValue) Terraria.Utils.DrawLine(Main.spriteBatch, center, center + _clockwiseNormal.Value * 32, Color.Orange, Color.White, 2);
+        //if (_swingBoostNormal.HasValue) Terraria.Utils.DrawLine(Main.spriteBatch, center, center + _swingBoostNormal.Value * 32, Color.Magenta, Color.White, 2);
+        //if (_movingClockWise.HasValue) Main.spriteBatch.DrawString(FontAssets.MouseText.Value, _movingClockWise.Value ? "left" : "right", new Vector2(700, 200), Color.Magenta);
+        //if (_dot.HasValue) Main.spriteBatch.DrawString(FontAssets.MouseText.Value, _dot.Value.ToString(), new Vector2(700, 230), Color.Magenta);
 
         // TODO: that should not be in UI code
         Vector2 velocityNormal = player.velocity.Normalized();
@@ -330,5 +351,37 @@ public class Storm : SynthModel
         {
             Main.spriteBatch.Draw(_speedEffectTexture.Value, Main.ScreenSize.ToVector2() / 2 + drawSpeedState.Offset, null, Color.White * 0.1f * (1 - MathF.Pow(drawSpeedState.Age / 2, 5)), MathF.Atan2(velocityNormal.Y, velocityNormal.X) + drawSpeedState.Angle, new Vector2(13, 27), Vector2.One, SpriteEffects.None, 0);
         }
+    }
+
+    public override bool StartUseItem(Item item)
+    {
+        var player = OwningPlayer;
+
+        if (item.CountsAsClass(DamageClass.Melee) && item.pick == 0 && item.axe == 0 && item.hammer == 0)
+        {
+            bool isGravediggerShovel = item.type == 4711;
+            if (item.pick > 0 || item.axe > 0 || item.hammer > 0 || isGravediggerShovel)
+                player.toolTime = 1;
+            //player.StartChanneling(item);
+            player.attackCD = 0;
+            player.ResetMeleeHitCooldowns();
+
+            //player.ApplyItemAnimation(item);
+            var projectile = Main.projectile[Projectile.NewProjectile(player.GetSource_ItemUse(item), player.Center, Vector2.Zero, ModContent.ProjectileType<StormMeleeAttack>(), item.damage, item.knockBack, player.whoAmI)];
+            var stormMeleeAttack = (StormMeleeAttack)projectile.ModProjectile;
+            stormMeleeAttack.AnimateSwingAttack(this, item, (Main.MouseWorld - player.Center).Normalized(), ref _meleeComboCounter, ref _meleeAnimationData);
+
+            LastMeleeAnimation = stormMeleeAttack.Animation;
+            LastMeleeAttackTime = Main.GameUpdateCount;
+
+            if (item.UseSound.HasValue && !ItemID.Sets.SkipsInitialUseSound[item.type])
+            {
+                SoundEngine.PlaySound(item.UseSound, player.Center);
+            }
+
+            return true;
+        }
+
+        return base.StartUseItem(item);
     }
 }

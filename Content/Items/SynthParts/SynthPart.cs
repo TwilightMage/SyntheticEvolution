@@ -3,6 +3,7 @@ using SyntheticEvolution.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using Terraria;
 using Terraria.Localization;
 using Terraria.ModLoader;
 

@@ -1,6 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using SyntheticEvolution.Common;
 using SyntheticEvolution.Common.ChainPhysics;
+using SyntheticEvolution.Common.SynthModels;
 using System;
 using System.Collections.Generic;
 using Terraria;
@@ -27,10 +29,16 @@ public class StormHook : ModProjectile
     private Texture2D _chainGlowTexture;
     private Color _chainGlowColor;
     private bool _reelBack;
+    private NPC _followEnemy;
+    private Vector2 _enemyLocationOffset;
+    private float _enemyAngleOffset;
 
     public override void SetDefaults()
     {
         base.SetDefaults();
+
+        Projectile.penetrate = -1;
+        Projectile.tileCollide = false;
     }
 
     // Use that for external mod compatibility
@@ -125,15 +133,26 @@ public class StormHook : ModProjectile
         Projectile.height = size.Y;
     }
 
+    public void SetFollowEnemy(NPC enemy, Vector2 locationOffset, float angleOffset)
+    {
+        _followEnemy = enemy;
+        _enemyLocationOffset = locationOffset;
+        _enemyAngleOffset = angleOffset;
+    }
+
     public void ReelBack()
     {
         _reelBack = true;
         _chain.LastPoint.Fixed = false;
+        _followEnemy = null;
+        _chain.HoldEnd = null;
     }
 
     public override void AI()
     {
         base.AI();
+
+        Player owner = Projectile.TryGetOwner(out Player player) && !player.dead ? player : null;
 
         if (_reelBack)
         {
@@ -144,23 +163,53 @@ public class StormHook : ModProjectile
                     _chain.DecreaseFromStart(2);
                     Projectile.position = _chain.LastPoint.Position;
                 }
-            
-                _chain.HoldPosition = Main.player[Projectile.owner].Center;
+
+                if (owner != null)
+                {
+                    _chain.HoldStart = owner.Center;
+                }
+                else
+                {
+                    _chain.HoldStart = null;
+                }
                 _chain.UpdatePhysics();
-            
+
                 if (_chain.CalculateVisualLength() < 8)
                 {
                     Projectile.Kill();
                     _chain = null;
-                }   
+                }
             }
         }
         else
         {
-            _chain.HoldPosition = Main.player[Projectile.owner].Center;
-            _chain.UpdatePhysics();
+            if (_followEnemy != null)
+            {
+                if (_followEnemy.active)
+                {
+                    Projectile.Center = _followEnemy.Center + _enemyLocationOffset.RotatedBy(_followEnemy.rotation - _enemyAngleOffset);
+                    _chain.HoldEnd = Projectile.Center;
+                }
+                else
+                {
+                    if (owner != null && owner.GetSynth() is Storm storm)
+                    {
+                        storm.ReelBackGrapple();
+                    }
+                    else
+                    {
+                        ReelBack();
+                    }
+                }
+            }
 
-            Projectile.timeLeft = 3600;
+            if (owner != null)
+            {
+                _chain.HoldStart = owner.Center;
+                Projectile.timeLeft = 180;
+            }
+
+            _chain.UpdatePhysics();
         }
     }
 
@@ -168,9 +217,16 @@ public class StormHook : ModProjectile
     {
         if (_chain != null)
         {
-            var p1 = _chain.GetPoint(^2).Position;
-            var p2 = _chain.GetPoint(^1).Position;
-            Projectile.rotation = p1.AngleTo(p2) + MathF.PI / 2;
+            if (_followEnemy != null)
+            {
+                Projectile.rotation = (_followEnemy.rotation - _enemyAngleOffset ) + MathF.PI / 2;
+            }
+            else
+            {
+                var p1 = _chain.GetPoint(^2).Position;
+                var p2 = _chain.GetPoint(^1).Position;
+                Projectile.rotation = p1.AngleTo(p2) + MathF.PI / 2;
+            }
         }
 
         Main.EntitySpriteDraw(_texture, Projectile.Center - Main.screenPosition, null, lightColor, Projectile.rotation, _texture.Size() / 2, Projectile.scale, SpriteEffects.None, 0f);
@@ -200,7 +256,7 @@ public class StormHook : ModProjectile
                 {
                     Main.EntitySpriteDraw(_chainGlowTexture, center, frame, _chainGlowColor, p1.AngleTo(p2) + MathF.PI / 2f, frame.Size() / 2f, scale, SpriteEffects.None);
                 }
-            }   
+            }
         }
 
         return false;

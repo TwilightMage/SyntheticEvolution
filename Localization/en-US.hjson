@@ -52,6 +52,9 @@ Mods: {
 			SynthPartsFabricator.MapEntry: Synth Parts Fabricator
 		}
 
-		Projectiles.StormHook.DisplayName: Storm Hook
+		Projectiles: {
+			StormHook.DisplayName: Storm Hook
+			StormMeleeAttack.DisplayName: Storm Melee Attack
+		}
 	}
 }

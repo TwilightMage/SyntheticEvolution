@@ -3,6 +3,7 @@ using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
 
 namespace SyntheticEvolution.Content.TileEntities;
 
@@ -47,5 +48,19 @@ public class StasisPodTileEntity : ModTileEntity
         {
             NetMessage.SendData(MessageID.TileEntitySharing, number: ID, number2: Position.X, number3: Position.Y);
         }
+    }
+
+    public override void SaveData(TagCompound tag)
+    {
+        base.SaveData(tag);
+
+        tag.Set("HostName", HostName);
+    }
+
+    public override void LoadData(TagCompound tag)
+    {
+        base.LoadData(tag);
+
+        HostName = tag.GetString("HostName");
     }
 }

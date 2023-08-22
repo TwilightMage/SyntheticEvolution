@@ -29,7 +29,7 @@ namespace SyntheticEvolution.Content.Mounts
             // Misc
             MountData.fatigueMax = 0;
             MountData.buff = ModContent.BuffType<Buffs.SynthBuff>(); // The ID number of the buff assigned to the mount.
-            
+
             // Frame data and player offsets
             MountData.totalFrames = 4; // Amount of animation frames for the mount
             MountData.playerYOffsets = Enumerable.Repeat(0, MountData.totalFrames).ToArray(); // Fills an array with values for less repeating code
@@ -78,8 +78,8 @@ namespace SyntheticEvolution.Content.Mounts
             }
             else
             {
-                MountData.runSpeed = 0f;
-                MountData.acceleration = 0f;
+                MountData.runSpeed = 1f;
+                MountData.acceleration = 0.1f;
             }
         }
 
@@ -94,7 +94,7 @@ namespace SyntheticEvolution.Content.Mounts
         public override void Dismount(Player player, ref bool skipDust)
         {
             player.GetModPlayer<SynthPlayer>()._synthModel = null;
-            
+
             skipDust = true;
         }
 

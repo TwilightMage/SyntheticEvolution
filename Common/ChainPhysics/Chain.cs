@@ -11,9 +11,11 @@ public class Chain
     private ChainPoint[] _points;
     private float[] _segmentLengths;
     private float _normalSegmentLength;
-    public Vector2? HoldPosition;
+    public Vector2? HoldStart;
+    public Vector2? HoldEnd;
     // Force opposite to HoldPosition will be sassed here, this function must return how much of it was accepted (from 0 to 1)
-    public Func<Vector2, (float, float)> HoldBack;
+    public Func<Vector2, (float, float)> HoldStartBack;
+    public Func<Vector2, (float, float)> HoldEndBack;
 
     public Vector2 Force = new Vector2(0, 0.4f);
     public float Drag = 0.999f;
@@ -65,7 +67,7 @@ public class Chain
         if (_segmentLengths[0] <= amount)
         {
             amount -= _segmentLengths[0];
-            
+
             _points = _points.Skip(1).ToArray();
             _segmentLengths = _segmentLengths.Skip(1).ToArray();
             _segmentLengths[0] -= amount;
@@ -94,7 +96,7 @@ public class Chain
         if (_normalSegmentLength - _segmentLengths[0] <= amount)
         {
             amount -= _normalSegmentLength - _segmentLengths[0];
-            
+
             _points = _points.Prepend(new ChainPoint()).ToArray();
             _points[0].Position = _points[0].LastPosition = _points[1].Position;
             _segmentLengths[0] = _normalSegmentLength;
@@ -129,13 +131,21 @@ public class Chain
             _points[i].Position += Force;
         }
 
-        ChainPoint holdPoint = null;
-        if (HoldPosition.HasValue)
+        ChainPoint holdStartPoint = null;
+        ChainPoint holdEndPoint = null;
+
+        if (HoldStart.HasValue)
         {
-            holdPoint = _points[0];
-            holdPoint.LastPosition = holdPoint.Position = HoldPosition.Value;
+            holdStartPoint = _points[0];
+            holdStartPoint.LastPosition = holdStartPoint.Position = HoldStart.Value;
         }
-        
+
+        if (HoldEnd.HasValue)
+        {
+            holdEndPoint = _points[^1];
+            holdEndPoint.LastPosition = holdEndPoint.Position = HoldEnd.Value;
+        }
+
 
         for (var i = 0; i < Stiffness; i++)
         {
@@ -166,12 +176,20 @@ public class Chain
                 }
             }
 
-            if (holdPoint != null)
+            if (holdStartPoint != null)
             {
-                Vector2 delta = HoldPosition.Value - holdPoint.Position;
-                (float takenX, float takenY) = HoldBack?.Invoke(-delta) ?? (0, 0);
-                holdPoint.LastPosition.X = holdPoint.Position.X += delta.X * (1 - takenX);
-                holdPoint.LastPosition.Y = holdPoint.Position.Y += delta.Y * (1 - takenY);
+                Vector2 delta = HoldStart.Value - holdStartPoint.Position;
+                (float takenX, float takenY) = HoldStartBack?.Invoke(-delta) ?? (0, 0);
+                holdStartPoint.LastPosition.X = holdStartPoint.Position.X += delta.X * (1 - takenX);
+                holdStartPoint.LastPosition.Y = holdStartPoint.Position.Y += delta.Y * (1 - takenY);
+            }
+
+            if (holdEndPoint != null)
+            {
+                Vector2 delta = HoldEnd.Value - holdEndPoint.Position;
+                (float takenX, float takenY) = HoldEndBack?.Invoke(-delta) ?? (0, 0);
+                holdEndPoint.LastPosition.X = holdEndPoint.Position.X += delta.X * (1 - takenX);
+                holdEndPoint.LastPosition.Y = holdEndPoint.Position.Y += delta.Y * (1 - takenY);
             }
         }
     }

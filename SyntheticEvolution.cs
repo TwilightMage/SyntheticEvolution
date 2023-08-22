@@ -23,6 +23,7 @@ namespace SyntheticEvolution
             On_Player.ToggleInv += ToggleInv;
             On_Player.GrappleMovement += GrappleMovement;
             On_Player.HorizontalMovement += HorizontalMovement;
+            On_Player.ItemCheck_StartActualUse += StartItemUse;
             On_Main.Update += Update;
             On_Main.DrawInterface_30_Hotbar += DrawHotbar;
         }
@@ -36,6 +37,7 @@ namespace SyntheticEvolution
             On_Player.ToggleInv -= ToggleInv;
             On_Player.GrappleMovement -= GrappleMovement;
             On_Player.HorizontalMovement -= HorizontalMovement;
+            On_Player.ItemCheck_StartActualUse -= StartItemUse;
             On_Main.Update -= Update;
             On_Main.DrawInterface_30_Hotbar -= DrawHotbar;
         }
@@ -101,6 +103,19 @@ namespace SyntheticEvolution
             {
                 synth.PostHorizontalMovement();
             }
+        }
+
+        private void StartItemUse(On_Player.orig_ItemCheck_StartActualUse orig, Player self, Item sitem)
+        {
+            if (self.GetSynth() is { } synth)
+            {
+                if (synth.StartUseItem(sitem))
+                {
+                    return;
+                }
+            }
+
+            orig(self, sitem);
         }
 
         private void Update(On_Main.orig_Update orig, Main self, GameTime deltaTime)
