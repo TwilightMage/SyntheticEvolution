@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using Terraria;
+using Terraria.DataStructures;
 using Terraria.ModLoader.IO;
 
 namespace SyntheticEvolution.Common.SynthModels;
@@ -99,6 +100,11 @@ public abstract class SynthModel
     }
 
     public virtual bool OverrideItemAnimation(Item item)
+    {
+        return false;
+    }
+
+    public virtual bool DrawPlayer(ref PlayerDrawSet drawSet)
     {
         return false;
     }

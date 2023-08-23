@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.Audio;
+using Terraria.DataStructures;
 using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.Localization;
@@ -47,6 +48,12 @@ public class Storm : SynthModel
 
     private static Asset<Texture2D> _hotbarSlotTexture;
     private static Asset<Texture2D> _hotbarSlotTextureBorder;
+
+    private static Asset<Texture2D> _characterBodyTexture;
+    private static Asset<Texture2D> _characterLegTexture;
+    private static Asset<Texture2D> _characterArmTexture;
+    private static Asset<Texture2D> _characterHeadTexture;
+    private static Asset<Texture2D> _characterLimbTexture;
 
     private static Asset<Texture2D> _speedEffectTexture;
 
@@ -403,5 +410,24 @@ public class Storm : SynthModel
         }
 
         return base.StartUseItem(item);
+    }
+
+    public override bool DrawPlayer(ref PlayerDrawSet drawSet)
+    {
+        return false;
+
+        _characterBodyTexture ??= ModContent.Request<Texture2D>("SyntheticEvolution/Assets/Textures/Characters/Storm/Torso");
+        _characterLegTexture ??= ModContent.Request<Texture2D>("SyntheticEvolution/Assets/Textures/Characters/Storm/Leg");
+        _characterArmTexture ??= ModContent.Request<Texture2D>("SyntheticEvolution/Assets/Textures/Characters/Storm/Arm");
+        _characterHeadTexture ??= ModContent.Request<Texture2D>("SyntheticEvolution/Assets/Textures/Characters/Storm/Head");
+        _characterLimbTexture ??= ModContent.Request<Texture2D>("SyntheticEvolution/Assets/Textures/Characters/Storm/Limb");
+
+        //drawSet = new PlayerDrawSet();
+        //drawSet.DrawDataCache = new List<DrawData>();
+
+        drawSet.DrawDataCache.Add(new DrawData(_characterBodyTexture.Value, _characterBodyTexture.Value.Bounds, Color.White));
+        drawSet.cBody = 0;
+
+        return true;
     }
 }

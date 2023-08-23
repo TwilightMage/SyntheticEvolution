@@ -4,6 +4,7 @@ using SyntheticEvolution.Content.Mounts;
 using System;
 using System.Collections.Generic;
 using Terraria;
+using Terraria.DataStructures;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 
@@ -138,5 +139,18 @@ public class SynthPlayer : ModPlayer
     public override void PreUpdate()
     {
         SynthModel?.FixedUpdate();
+    }
+
+    public override void ModifyDrawInfo(ref PlayerDrawSet drawInfo)
+    {
+        if (SynthModel is { } synth)
+        {
+            if (synth.DrawPlayer(ref drawInfo))
+            {
+                return;
+            }
+        }
+
+        base.ModifyDrawInfo(ref drawInfo);
     }
 }
